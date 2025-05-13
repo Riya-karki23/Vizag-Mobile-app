@@ -531,42 +531,44 @@ const LoginForm = () => {
               >
                 <View style={styles.modalOverlay}>
                   <View style={styles.modalContent}>
-                    <Text style={styles.modelHading}>
+                    <CustomText style={styles.modelHading}>
                       Subscribe now to get started.{" "}
-                    </Text>
-                    <Text style={styles.modelHading}>Need help? </Text>
+                    </CustomText>
+                    <CustomText style={styles.modelHading}>
+                      Need help?{" "}
+                    </CustomText>
                     <View style={styles.modalTextContainer}>
-                      <Text style={styles.boldText}>
+                      <CustomText style={styles.boldText}>
                         Email:{" "}
-                        <Text
+                        <CustomText
                           style={styles.boldTextHighlight}
                           onPress={() =>
                             handleEmailPress("support@multark.com")
                           }
                         >
                           support@multark.com
-                        </Text>
-                      </Text>
-                      <Text style={styles.boldText}>
+                        </CustomText>
+                      </CustomText>
+                      <CustomText style={styles.boldText}>
                         Website:{" "}
-                        <Text
+                        <CustomText
                           style={styles.boldTextHighlight}
                           onPress={() =>
                             handleLinkPress("https://erp.multark.com/about")
                           }
                         >
                           https://erp.multark.com
-                        </Text>
-                      </Text>
-                      <Text style={styles.boldText}>
+                        </CustomText>
+                      </CustomText>
+                      <CustomText style={styles.boldText}>
                         Contact:{" "}
-                        <Text
+                        <CustomText
                           style={styles.boldTextHighlight}
                           onPress={() => handleCallPress("+919136453613")}
                         >
                           +91 91364 53613
-                        </Text>
-                      </Text>
+                        </CustomText>
+                      </CustomText>
                     </View>
 
                     <TouchableOpacity

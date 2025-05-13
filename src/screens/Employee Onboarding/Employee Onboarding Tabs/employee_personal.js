@@ -1,7 +1,8 @@
 import { Text, View } from "react-native";
+import CustomText from "../../../component/CustomText/customText";
 const EmployeePersonalDetail = () => (
   <View>
-    <Text>Profile Screen</Text>
+    <CustomText>Profile Screen</CustomText>
   </View>
 );
 

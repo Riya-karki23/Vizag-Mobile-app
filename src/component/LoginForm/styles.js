@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.redColor,
   },
-  Submitbutton:{
+  Submitbutton: {
     alignItems: "center",
     width: "100%",
     height: 50,
@@ -101,44 +101,44 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
   },
   modalContent: {
     paddingTop: 20,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 20,
-    width: '70%',
-    alignItems: 'center',
+    width: "70%",
+    alignItems: "center",
   },
   modalTextContainer: {
     marginTop: 6,
   },
   modelHading: {
     fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'left',
+    fontWeight: "500",
+    textAlign: "left",
     color: Colors.darkGreyColor,
     marginRight: 5,
     lineHeight: 22,
   },
   boldText: {
     fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'left',
+    // fontWeight: "600",
+    textAlign: "left",
     color: Colors.darkGreyColor,
     marginRight: 5,
     lineHeight: 22,
   },
   boldTextHighlight: {
     fontSize: 12,
-    fontWeight: "400",
-    color: Colors.redColor, 
+    // fontWeight: "400",
+    color: Colors.redColor,
     marginLeft: 5,
-    textAlign: 'right',
+    textAlign: "right",
   },
-  CloseButton:{
+  CloseButton: {
     alignItems: "center",
     textAlign: "center",
     width: 80,
@@ -146,14 +146,14 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginTop: 10,
   },
-  CloseButtonText:{
+  CloseButtonText: {
     color: Colors.whiteColor,
     fontSize: 14,
     fontWeight: "600",
     textAlign: "right",
-    alignItems :  "center",
-    marginTop:8
-  }
+    alignItems: "center",
+    marginTop: 8,
+  },
 });
 
 export default styles;

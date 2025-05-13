@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+
     marginBottom: 10,
     color: Colors.darkGreyColor,
   },
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: Colors.whiteColor,
-    fontWeight: "bold",
+    // fontWeight: "bold",
     textAlign: "center",
   },
   initialText: {

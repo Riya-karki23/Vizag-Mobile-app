@@ -20,8 +20,7 @@ import { useNavigation } from "@react-navigation/native";
 import { getItemFromStorage } from "../../utils/asyncStorage";
 
 import { TouchableOpacity } from "react-native";
-import Ionicons from 'react-native-vector-icons/Ionicons';
-
+import Ionicons from "react-native-vector-icons/Ionicons";
 
 const { width, height } = Dimensions.get("window");
 const baseWidth = 375;
@@ -35,41 +34,36 @@ const AttendanceScreen = ({ route }) => {
   const [userName, setUserName] = useState("");
   const navigation = useNavigation();
 
+  const filterData = async (storedUserName) => {
+    try {
+      setLoading(true);
+      const fromDate = route.params?.fromDate || "";
+      const selectedLogType = route.params?.selectedLogType || "";
 
-const filterData = async (storedUserName) => {
-  try {
-    setLoading(true);
-    const fromDate = route.params?.fromDate || "";
-    const selectedLogType = route.params?.selectedLogType || "";
-
-    const data = await fetchEmployeeCheckins(
-      storedUserName,
-      fromDate,
-      selectedLogType
-    );
-    setEmployeeCheckins(data.data);
-  } catch (error) {
-    setError(error.message);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-useEffect(() => {
-  const loadUserAndData = async () => {
-    const storedUserName = await getItemFromStorage(Strings.userName);
-    if (storedUserName) {
-      setUserName(storedUserName);
-      filterData(storedUserName);
+      const data = await fetchEmployeeCheckins(
+        storedUserName,
+        fromDate,
+        selectedLogType
+      );
+      setEmployeeCheckins(data.data);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  loadUserAndData();
-}, [route.params?.fromDate, route.params?.selectedLogType]);
+  useEffect(() => {
+    const loadUserAndData = async () => {
+      const storedUserName = await getItemFromStorage(Strings.userName);
+      if (storedUserName) {
+        setUserName(storedUserName);
+        filterData(storedUserName);
+      }
+    };
 
-
-
+    loadUserAndData();
+  }, [route.params?.fromDate, route.params?.selectedLogType]);
 
   if (loading) {
     return <Loader isLoading={loading} />;
@@ -90,29 +84,27 @@ useEffect(() => {
     return `${day}/${month}/${year} \n${adjustedHours}:${minutes} ${period}`;
   };
 
-
-
   return (
-<BackgroundWrapper imageSource={images.mainBackground}>
+    <BackgroundWrapper imageSource={images.mainBackground}>
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.container}>
           <TopBar />
           <View style={styles.filterButtons}>
-          <CustomText style={styles.headerText}>Employee Checkins</CustomText>
-<View style={styles.filterContainer}>
-<TouchableOpacity 
-
-onPress={()=>navigation.navigate("Attendance Filter", 
-  {
-    from_date: route.params?.fromDate || "",
-    selected_log_type: route.params?.selectedLogType || "",
-  
-  })} 
-style={{flexDirection:"row", alignItems:"center",gap:4}}>
-<Ionicons name="filter-outline" size={20} color="#666" />
-  <Text style={styles.filterText}> Filter</Text>
-</TouchableOpacity>
-  </View>
+            <CustomText style={styles.headerText}>Employee Checkins</CustomText>
+            <View style={styles.filterContainer}>
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate("Attendance Filter", {
+                    from_date: route.params?.fromDate || "",
+                    selected_log_type: route.params?.selectedLogType || "",
+                  })
+                }
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
+                <Ionicons name="filter-outline" size={20} color="#666" />
+                <CustomText style={styles.filterText}> Filter</CustomText>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.tableHeader}>
@@ -147,7 +139,7 @@ style={{flexDirection:"row", alignItems:"center",gap:4}}>
                   <CustomText style={styles.tableCell}>
                     {item.time ? formatToIST(item.time) : "NA"}
                   </CustomText>
-                  <Text
+                  <CustomText
                     style={[
                       styles.tableCell,
                       {
@@ -158,7 +150,7 @@ style={{flexDirection:"row", alignItems:"center",gap:4}}>
                     ]}
                   >
                     {item.log_type}
-                  </Text>
+                  </CustomText>
                 </View>
               )}
             />
@@ -285,20 +277,18 @@ const styles = StyleSheet.create({
   },
 
   filterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
     borderRadius: 8,
     gap: 5,
     paddingHorizontal: 10,
   },
   filterText: {
     fontSize: 14,
-    color: '#333',
+    color: "#333",
   },
- 
-  
 });
 
 export default AttendanceScreen;
