@@ -14,7 +14,7 @@ package="com.checkzy">
     <application
       android:usesCleartextTraffic="true"
       android:name=".MainApplication"
-      android:label="Betul HRMS"
+      android:label="HRMS"
       android:icon="@mipmap/ic_launcher"
       android:allowBackup="false"
       android:theme="@style/AppTheme"

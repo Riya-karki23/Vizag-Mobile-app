@@ -12,7 +12,6 @@ import {
   TouchableWithoutFeedback,
   Text,
   Linking,
-  Alert,
 } from "react-native";
 import {
   CommonActions,
@@ -29,9 +28,7 @@ import LinearGradient from "react-native-linear-gradient";
 import BackgroundWrapper from "../../Background";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  AKGNI_URL,
   BaseURL,
-  BETUL_URL,
   GROWTHAWK_URL,
   MULTARK_URL,
   PANORAH_URL,
@@ -47,8 +44,6 @@ import { getItemFromStorage, setItemToStorage } from "../../utils/asyncStorage";
 import axios from "axios";
 import { Modal } from "react-native";
 import { Button } from "react-native";
-import SHA256 from "crypto-js/sha256";
-import { setExternalId } from "../../api/requestPushNotificationPermission/requestPushNotificationPermission";
 const LoginForm = () => {
   const route = useRoute();
   const isFocused = useIsFocused();
@@ -59,8 +54,8 @@ const LoginForm = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
-  const [baseURL, setBaseURL] = useState(BETUL_URL);
-  const [selectedCompany, setSelectedCompany] = useState("http://akgni.in");
+  const [baseURL, setBaseURL] = useState(MULTARK_URL);
+  const [selectedCompany, setSelectedCompany] = useState("");
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [focus, setFocus] = useState({ email: false, password: false });
@@ -70,7 +65,6 @@ const LoginForm = () => {
     const getURl = async () => {
       try {
         const savedBaseURL = await getItemFromStorage(Strings.baseURL);
-
         if (savedBaseURL) {
           setDropdownVisible(true);
         } else {
@@ -93,7 +87,7 @@ const LoginForm = () => {
       try {
         const savedBaseURL = await getItemFromStorage(Strings.baseURL);
         if (!savedBaseURL) {
-          await setItemToStorage(Strings.baseURL, baseURL);
+          // await setItemToStorage(Strings.baseURL, baseURL);
           logInfo("Base URL set for the first time:", baseURL);
         } else {
           logInfo("Base URL already set:", savedBaseURL);
@@ -104,21 +98,21 @@ const LoginForm = () => {
     };
     setBaseURL();
   }, [isFocused]);
-  // useEffect(() => {
-  //   switch (selectedCompany) {
-  //     case BaseURL.MULTARK:
-  //       setBaseURL(MULTARK_URL);
-  //       break;
-  //     case BaseURL.PANORAH:
-  //       setBaseURL(PANORAH_URL);
-  //       break;
-  //     case BaseURL.GROWTHAWK:
-  //       setBaseURL(GROWTHAWK_URL);
-  //       break;
-  //     default:
-  //       setBaseURL(AKGNI_URL);
-  //   }
-  // }, [selectedCompany]);
+  useEffect(() => {
+    switch (selectedCompany) {
+      case BaseURL.MULTARK:
+        setBaseURL(MULTARK_URL);
+        break;
+      case BaseURL.PANORAH:
+        setBaseURL(PANORAH_URL);
+        break;
+      case BaseURL.GROWTHAWK:
+        setBaseURL(GROWTHAWK_URL);
+        break;
+      default:
+        setBaseURL(MULTARK_URL);
+    }
+  }, [selectedCompany]);
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
       setEmail("");
@@ -139,11 +133,15 @@ const LoginForm = () => {
   };
 
   const handleSubmit = async () => {
-    const savedBaseURL = await getItemFromStorage(Strings.baseURL);
     setLoading(true);
+    if (!selectedCompany) {
+      showToast("Please enter a valid URL");
+      setLoading(false);
+      return;
+    }
     try {
       const fetchID = await fetch(
-        `https://erp.multark.com/api/method/custom_theme.api.get_hrms_data?customer_url=${savedBaseURL}`
+        `https://erp.multark.com/api/method/custom_theme.api.get_hrms_data?customer_url=${selectedCompany}`
       );
       const fetchDataID = await fetchID.json();
       const response = await axios.get(
@@ -167,24 +165,11 @@ const LoginForm = () => {
         if (onlyDate1 <= onlyDate2) {
           setDropdownVisible(true);
           // setBaseURL(data.customer_url);
-          handleLogin();
+
           await setItemToStorage(Strings.baseURL, data.customer_url);
         } else {
           logInfo("Subscription is not yet valid.");
           setModalVisible(true);
-          Alert.alert(
-            "Subscription Error",
-            "Your subscription is invalid or expired.\n\nPlease contact support:\nEmail: support@multark.com\nWebsite: https://erp.multark.com/about",
-            [
-              {
-                text: "OK",
-                onPress: () => {},
-              },
-            ],
-            {
-              cancelable: false,
-            }
-          );
         }
       } else {
         logInfo("No data found or invalid response.");
@@ -194,11 +179,10 @@ const LoginForm = () => {
       logError("Error submitting company:", error);
       setDropdownVisible(false);
       setModalVisible(true);
+    } finally {
+      setLoading(false);
+      // setSelectedCompany("");
     }
-    // finally {
-    //   setLoading(false);
-    //   // setSelectedCompany("");
-    // }
   };
 
   const handleLogin = async () => {
@@ -214,10 +198,8 @@ const LoginForm = () => {
       const result = await login(email, password, baseURL);
       if (result.success && result.message === "Logged In") {
         const sessionData = { cookies: result.cookies, userName: email };
-        await storeSession(sessionData);
-        const hashedEmail = SHA256(email.toLowerCase()).toString();
-        setExternalId(hashedEmail);
         setLoading(false);
+        await storeSession(sessionData);
         // navigation.dispatch(
         //   CommonActions.reset({
         //     index: 0,
@@ -246,10 +228,9 @@ const LoginForm = () => {
     } catch (error) {
       setLoading(false);
       showToast(`Login failed: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
-    // finally {
-    //   setLoading(false);
-    // }
   };
 
   const handleLinkPress = (url) => {
@@ -416,8 +397,8 @@ const LoginForm = () => {
                 )} */}
 
                 <View style={styles.fieldContainer}>
-                  {/* {!dropdownVisible && (
-                     <>
+                  {!dropdownVisible && (
+                    <>
                       <TextInput
                         style={[
                           styles.input,
@@ -432,6 +413,7 @@ const LoginForm = () => {
                         onFocus={() => setFocus({ ...focus, email: true })}
                         onBlur={() => setFocus({ ...focus, email: false })}
                       />
+
                       <TouchableOpacity onPress={handleSubmit}>
                         {loading ? (
                           <Loader isLoading={loading} />
@@ -448,73 +430,76 @@ const LoginForm = () => {
                           </LinearGradient>
                         )}
                       </TouchableOpacity>
-                    </> 
-                  )} */}
+                    </>
+                  )}
 
-                  {/* {dropdownVisible || showDropdown ? ( */}
-                  <View>
-                    <TextInput
-                      style={[styles.input, focus.email && styles.activeInput]}
-                      placeholder="Enter your email"
-                      placeholderTextColor={Colors.greyishBlueColor}
-                      value={email}
-                      selectionColor={Colors.orangeColor}
-                      onChangeText={setEmail}
-                      keyboardType="email-address"
-                      onFocus={() => setFocus({ ...focus, email: true })}
-                      onBlur={() => setFocus({ ...focus, email: false })}
-                    />
-                    <View style={styles.passwordContainer}>
+                  {dropdownVisible || showDropdown ? (
+                    <View>
                       <TextInput
                         style={[
                           styles.input,
-                          focus.password && styles.activeInput,
+                          focus.email && styles.activeInput,
                         ]}
-                        placeholder="Enter your password"
+                        placeholder="Enter your email"
                         placeholderTextColor={Colors.greyishBlueColor}
-                        value={password}
+                        value={email}
                         selectionColor={Colors.orangeColor}
-                        onChangeText={setPassword}
-                        secureTextEntry={!passwordVisible}
-                        onFocus={() => setFocus({ ...focus, password: true })}
-                        onBlur={() => setFocus({ ...focus, password: false })}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        onFocus={() => setFocus({ ...focus, email: true })}
+                        onBlur={() => setFocus({ ...focus, email: false })}
                       />
-                      <TouchableOpacity
-                        onPress={togglePasswordVisibility}
-                        style={styles.eyeIcon}
-                      >
-                        <Icon
-                          name={passwordVisible ? "eye" : "eye-slash"}
-                          size={20}
-                          color={Colors.redColor}
+                      <View style={styles.passwordContainer}>
+                        <TextInput
+                          style={[
+                            styles.input,
+                            focus.password && styles.activeInput,
+                          ]}
+                          placeholder="Enter your password"
+                          placeholderTextColor={Colors.greyishBlueColor}
+                          value={password}
+                          selectionColor={Colors.orangeColor}
+                          onChangeText={setPassword}
+                          secureTextEntry={!passwordVisible}
+                          onFocus={() => setFocus({ ...focus, password: true })}
+                          onBlur={() => setFocus({ ...focus, password: false })}
                         />
+                        <TouchableOpacity
+                          onPress={togglePasswordVisibility}
+                          style={styles.eyeIcon}
+                        >
+                          <Icon
+                            name={passwordVisible ? "eye" : "eye-slash"}
+                            size={20}
+                            color={Colors.redColor}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.button}
+                        onPress={handleLogin}
+                      >
+                        {loading ? (
+                          <Loader isLoading={loading} />
+                        ) : (
+                          <LinearGradient
+                            colors={[Colors.orangeColor, Colors.redColor]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 0, y: 1 }}
+                            style={styles.button}
+                          >
+                            <CustomText style={styles.buttonText}>
+                              Log In
+                            </CustomText>
+                          </LinearGradient>
+                        )}
                       </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                      style={styles.button}
-                      onPress={handleSubmit}
-                    >
-                      {loading ? (
-                        <Loader isLoading={loading} />
-                      ) : (
-                        <LinearGradient
-                          colors={[Colors.orangeColor, Colors.redColor]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 0, y: 1 }}
-                          style={styles.button}
-                        >
-                          <CustomText style={styles.buttonText}>
-                            Log In
-                          </CustomText>
-                        </LinearGradient>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                  {/* ) : null}  */}
+                  ) : null}
                 </View>
               </View>
 
-              {/* <Modal
+              <Modal
                 animationType="slide"
                 transparent={true}
                 visible={modalVisible}
@@ -581,7 +566,7 @@ const LoginForm = () => {
                     </TouchableOpacity>
                   </View>
                 </View>
-              </Modal> */}
+              </Modal>
             </ScrollView>
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>

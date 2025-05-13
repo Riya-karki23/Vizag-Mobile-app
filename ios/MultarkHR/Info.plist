@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Betul HRMS</string>
+	<string>HRMS</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -32,7 +32,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Betul HRMS requires access to your camera to verify your presence within the office premises.</string>
+	<string>HRMS requires access to your camera to verify your presence within the office premises.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>MultarkHR requires your location to verify your presence within the office premises, even when the app is in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
