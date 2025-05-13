@@ -296,11 +296,14 @@ const LoginForm = () => {
                 <View style={[styles.imageContainer, styles.logoConatiner]}>
                   <Image
                     source={
-                      !imageError
+                      companyImage && !imageError
                         ? { uri: `http://erp.multark.com${companyImage}` }
                         : images.multarkLogo
                     }
-                    onError={() => setImageError(true)}
+                    onError={() => {
+                      setImageError(true);
+                      setcompanyImage("");
+                    }}
                     style={styles.multarkLogo}
                   />
                 </View>

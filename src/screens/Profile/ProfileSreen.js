@@ -110,8 +110,7 @@ const ProfileScreen = () => {
     setLogoutModalVisible(false);
 
     try {
-      await clearExceptKeys(Strings.baseURL);
-      await clearExceptKeys(Strings.companyLogo);
+      await clearExceptKeys([Strings.baseURL, Strings.companyLogo]);
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -125,7 +124,7 @@ const ProfileScreen = () => {
       Alert.alert("Logout Error", "An error occurred while logging out.");
     }
   };
-  const clearExceptKeys = async (keysToKeep) => {
+  const clearExceptKeys = async (keysToKeep = []) => {
     try {
       const keys = await AsyncStorage.getAllKeys();
       const keysToDelete = keys.filter((key) => !keysToKeep.includes(key));

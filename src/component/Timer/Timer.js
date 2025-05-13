@@ -72,7 +72,7 @@ const Timer = ({ punchInTime, punchOutTime }) => {
           log.log_type === "OUT" &&
           new Date(log.time) > new Date(latestCheckIn.time)
       );
-      if (!hasCheckOut && latestCheckIn.night_shift === 1) {
+      if (!hasCheckOut && latestCheckIn?.night_shift === 1) {
         const today = new Date();
         const startOfDay = new Date(today.setHours(0, 0, 0, 0)).getTime();
         const startOfTomorrow = new Date(today);

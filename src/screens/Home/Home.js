@@ -57,6 +57,7 @@ const Home = () => {
   const [designation, setDesignation] = useState("");
   const [baseURL, setBaseUrl] = useState("");
   const [companyName, setcompanyName] = useState("");
+  const [isManuFactuer, setIsManuFacturer] = useState(false);
   const isFocused = useIsFocused();
   useEffect(() => {
     fetchUserData();
@@ -309,6 +310,7 @@ const Home = () => {
         "GET",
         `/api/resource/User/${userName}`
       );
+
       if (!userResponse || isCookieExpired(session)) {
         showToast("Session is expired. Please log in again.");
         await setItemToStorage(Strings.userCookie, "");
@@ -318,6 +320,13 @@ const Home = () => {
         );
       } else {
         if (userName && session) {
+          var isProductionManager = userResponse.data.data.roles.some(
+            (role) =>
+              role.role === "Manufacturing User" ||
+              role.role === "Manufacturing Manager"
+          );
+
+          setIsManuFacturer(isProductionManager);
           setUserName(userName);
           const employeeResponse = await request(
             "GET",
@@ -692,47 +701,55 @@ const Home = () => {
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.favStatus}>
-
-
- <TouchableOpacity
+                <View
                   style={[
-                    styles.favSubCard,
-                    { width: "45%", marginBottom: 20 },
+                    styles.favStatus,
+                    { width: !isManuFactuer ? "50%" : null },
                   ]}
-                  onPress={() => navigation.navigate("HolidayList")}
                 >
-                  <View style={styles.favStatusText}>
-                    <CustomText style={styles.punchText}>Holiday's</CustomText>
-                  </View>
-                  <View style={styles.favStatusIcon}>
-                    <IconMaterial
-                      name="holiday-village"
-                      size={45}
-                      color={Colors.orangeColor}
-                    />
-                  </View>
-                </TouchableOpacity>
-
                   <TouchableOpacity
-                    style={[styles.favSubCard]}
-                    onPress={() => navigation.navigate("Production Entry")}
+                    style={[
+                      styles.favSubCard,
+                      { width: "45%", marginBottom: 20 },
+                    ]}
+                    onPress={() => navigation.navigate("HolidayList")}
                   >
                     <View style={styles.favStatusText}>
                       <CustomText style={styles.punchText}>
-                        Production Entry
+                        Holiday's
                       </CustomText>
                     </View>
                     <View style={styles.favStatusIcon}>
-                      <FontAwesomeIcon
-                        name="file-text-o"
+                      <IconMaterial
+                        name="holiday-village"
                         size={45}
                         color={Colors.orangeColor}
                       />
                     </View>
                   </TouchableOpacity>
+                  {isManuFactuer && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.favSubCard]}
+                        onPress={() => navigation.navigate("Production Entry")}
+                      >
+                        <View style={styles.favStatusText}>
+                          <CustomText style={styles.punchText}>
+                            Production Entry
+                          </CustomText>
+                        </View>
+                        <View style={styles.favStatusIcon}>
+                          <FontAwesomeIcon
+                            name="industry"
+                            size={45}
+                            color={Colors.orangeColor}
+                          />
+                        </View>
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </View>
-               
+
                 {/* <View style={styles.favStatus}>
                   <TouchableOpacity
                     style={styles.favSubCard}
