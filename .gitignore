@@ -1,0 +1,38 @@
+# Node modules
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS-specific files
+.DS_Store
+*.swp
+*.swo
+
+# Android/IntelliJ
+android/.gradle/
+android/app/build/
+android/.idea/
+
+# iOS
+ios/Pods/
+ios/build/
+
+# Expo
+.expo/
+.expo-shared/
+
+# React Native Packager
+.expo/
+web-build/
+build/
+.idea/
+*.iml
+*.log
+.packages
+.vscode/
+
+# Environment variables
+.env

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "876135059069",
+    "project_id": "checkzy3186",
+    "storage_bucket": "checkzy3186.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:876135059069:android:7e7ceb47a549cc22ec6b14",
+        "android_client_info": {
+          "package_name": "com.checkzy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZkzX5ixcgmoe72IlIKoghP4PxGGrOt2M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
