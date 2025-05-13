@@ -91,6 +91,10 @@ const Home = () => {
 
         if (onlyDate1 <= onlyDate2) {
           logInfo("Subscription is valid.");
+          await setItemToStorage(
+            Strings.companyLogo,
+            data?.custom_company_logo
+          );
           await setItemToStorage(Strings.baseURL, data.customer_url);
         } else {
           Alert.alert(

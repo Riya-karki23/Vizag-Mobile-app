@@ -10,6 +10,7 @@ export const Strings = {
   userName: "userName",
   isLoggedIn: "isLoggedIn",
   baseURL: "baseURL",
+  companyLogo: "companyLogo",
   offceCoordinate: "offceCoordinate",
   offceGeoFenceRadius: "offceGeoFenceRadius",
   designation: "designation",

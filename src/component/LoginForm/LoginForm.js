@@ -59,12 +59,23 @@ const LoginForm = () => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [focus, setFocus] = useState({ email: false, password: false });
-
+  const [companyImage, setcompanyImage] = useState("");
+  const [imageError, setImageError] = useState(false);
   // useEffect(() => {
   useEffect(() => {
     const getURl = async () => {
       try {
         const savedBaseURL = await getItemFromStorage(Strings.baseURL);
+        const savedCompanyImage = await getItemFromStorage(Strings.companyLogo);
+        if (savedCompanyImage) {
+          const logoUrl = savedCompanyImage?.replace(
+            "/private/files/",
+            "/files/"
+          );
+          setcompanyImage(logoUrl);
+        } else {
+          setcompanyImage("");
+        }
         if (savedBaseURL) {
           setDropdownVisible(true);
         } else {
@@ -165,8 +176,13 @@ const LoginForm = () => {
         if (onlyDate1 <= onlyDate2) {
           setDropdownVisible(true);
           // setBaseURL(data.customer_url);
-
           await setItemToStorage(Strings.baseURL, data.customer_url);
+          const logoUrl = data?.custom_company_logo?.replace(
+            "/private/files/",
+            "/files/"
+          );
+          await setItemToStorage(Strings.companyLogo, logoUrl);
+          setcompanyImage(data?.custom_company_logo);
         } else {
           logInfo("Subscription is not yet valid.");
           setModalVisible(true);
@@ -279,7 +295,12 @@ const LoginForm = () => {
               <View style={styles.container}>
                 <View style={[styles.imageContainer, styles.logoConatiner]}>
                   <Image
-                    source={images.multarkLogo}
+                    source={
+                      !imageError
+                        ? { uri: `http://erp.multark.com${companyImage}` }
+                        : images.multarkLogo
+                    }
+                    onError={() => setImageError(true)}
                     style={styles.multarkLogo}
                   />
                 </View>
