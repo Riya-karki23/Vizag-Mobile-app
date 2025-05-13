@@ -50,6 +50,7 @@ import { LogLevel, OneSignal } from "react-native-onesignal";
 import { use } from "react";
 import SalarySlipFilter from "./screens/SalarySlip/SalarySlipFilter";
 import AttendanceFilter from "./screens/Attendance/AttendanceFilter";
+import ProductionEntryList from "./screens/ProductionEntry/ProductionEntryList";
 const Stack = createNativeStackNavigator();
 
 const App = () => {
@@ -235,6 +236,12 @@ const App = () => {
               <Stack.Screen
                 name="Attendance Filter"
                 component={AttendanceFilter}
+                options={{ headerShown: false }}
+              />
+
+               <Stack.Screen
+                name="Production Entry"
+                component={ProductionEntryList}
                 options={{ headerShown: false }}
               />
 

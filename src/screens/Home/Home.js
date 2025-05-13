@@ -691,7 +691,11 @@ const Home = () => {
                     </View>
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity
+
+                <View style={styles.favStatus}>
+
+
+ <TouchableOpacity
                   style={[
                     styles.favSubCard,
                     { width: "45%", marginBottom: 20 },
@@ -709,6 +713,26 @@ const Home = () => {
                     />
                   </View>
                 </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.favSubCard]}
+                    onPress={() => navigation.navigate("Production Entry")}
+                  >
+                    <View style={styles.favStatusText}>
+                      <CustomText style={styles.punchText}>
+                        Production Entry
+                      </CustomText>
+                    </View>
+                    <View style={styles.favStatusIcon}>
+                      <FontAwesomeIcon
+                        name="file-text-o"
+                        size={45}
+                        color={Colors.orangeColor}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                </View>
+               
                 {/* <View style={styles.favStatus}>
                   <TouchableOpacity
                     style={styles.favSubCard}
