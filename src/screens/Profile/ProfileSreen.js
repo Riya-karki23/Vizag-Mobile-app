@@ -111,6 +111,7 @@ const ProfileScreen = () => {
 
     try {
       await clearExceptKeys(Strings.baseURL);
+      await clearExceptKeys(Strings.companyLogo);
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
