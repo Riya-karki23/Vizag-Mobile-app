@@ -33,6 +33,7 @@
     "react-native-crypto-js": "^1.0.0",
     "react-native-device-info": "^14.0.4",
     "react-native-dotenv": "^3.4.11",
+    "react-native-element-dropdown": "^2.12.4",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.19.0",
     "react-native-get-location": "^5.0.0",

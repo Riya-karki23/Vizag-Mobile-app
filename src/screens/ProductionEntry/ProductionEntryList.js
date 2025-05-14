@@ -9,7 +9,6 @@ import {
   Platform,
 } from "react-native";
 import TopBar from "../../component/TopBar/TopBar";
-import { fetchEmployeeCheckins } from "../../api/fetchEmployeeCheckins/fetchEmployeeCheckins";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Loader from "../../component/loader/appLoader";
 import { Strings } from "../../constant/string_constant";
@@ -17,11 +16,11 @@ import { Colors } from "../../constant/color";
 import CustomText from "../../component/CustomText/customText";
 import BackgroundWrapper from "../../Background";
 import images from "../../constant/image";
-import { useNavigation } from "@react-navigation/native";
-import { getItemFromStorage } from "../../utils/asyncStorage";
-
+import { useIsFocused, useNavigation } from "@react-navigation/native";
 import { TouchableOpacity } from "react-native";
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import Ionicons from 'react-native-vector-icons/Entypo';
+import { fetchProductionEntryData } from "../../api/productionEntry/fetchProductionEntryData";
+import LinearGradient from "react-native-linear-gradient";
 
 
 const { width, height } = Dimensions.get("window");
@@ -30,25 +29,18 @@ const desiredFontSize = 20;
 const responsiveFontSize = desiredFontSize * (width / baseWidth);
 
 const ProductionEntryList = ({ route }) => {
-  const [employeeCheckins, setEmployeeCheckins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userName, setUserName] = useState("");
   const navigation = useNavigation();
+  const [productionEntryList, setProductionEntryList] = useState([]);
+  const isFocused = useIsFocused();
 
 
-const filterData = async (storedUserName) => {
+const filterData = async () => {
   try {
     setLoading(true);
-    const fromDate = route.params?.fromDate || "";
-    const selectedLogType = route.params?.selectedLogType || "";
-
-    const data = await fetchEmployeeCheckins(
-      storedUserName,
-      fromDate,
-      selectedLogType
-    );
-    setEmployeeCheckins(data.data);
+    const data = await fetchProductionEntryData();
+    setProductionEntryList(data.data);
   } catch (error) {
     setError(error.message);
   } finally {
@@ -58,38 +50,13 @@ const filterData = async (storedUserName) => {
 
 
 useEffect(() => {
-  const loadUserAndData = async () => {
-    const storedUserName = await getItemFromStorage(Strings.userName);
-    if (storedUserName) {
-      setUserName(storedUserName);
-      filterData(storedUserName);
-    }
-  };
-
-  loadUserAndData();
-}, [route.params?.fromDate, route.params?.selectedLogType]);
-
-
+filterData();
+}, [isFocused]);
 
 
   if (loading) {
     return <Loader isLoading={loading} />;
   }
-
-  const formatToIST = (timestamp) => {
-    const date = new Date(timestamp.replace(" ", "T"));
-    const utcOffset = date.getTime() + date.getTimezoneOffset() * 60000;
-    const istTime = new Date(utcOffset + 5.5 * 60 * 60 * 1000);
-    const day = istTime.getDate().toString().padStart(2, "0");
-    const month = (istTime.getMonth() + 1).toString().padStart(2, "0");
-    const year = istTime.getFullYear();
-    const hours = istTime.getHours().toString().padStart(2, "0");
-    const minutes = istTime.getMinutes().toString().padStart(2, "0");
-    const seconds = istTime.getSeconds().toString().padStart(2, "0");
-    const period = hours >= 12 ? "PM" : "AM";
-    const adjustedHours = (hours % 12 || 12).toString().padStart(2, "0");
-    return `${day}/${month}/${year} \n${adjustedHours}:${minutes} ${period}`;
-  };
 
 
 
@@ -99,38 +66,31 @@ useEffect(() => {
         <View style={styles.container}>
           <TopBar />
           <View style={styles.filterButtons}>
-          <CustomText style={styles.headerText}>Employee Checkins</CustomText>
-<View style={styles.filterContainer}>
+          <CustomText style={styles.headerText}>Production Entry</CustomText>
+   <LinearGradient
+          colors={[Colors.orangeColor, Colors.redColor]}
+          style={styles.filterContainer}
+        >
 <TouchableOpacity 
-
-onPress={()=>navigation.navigate("Attendance Filter", 
-  {
-    from_date: route.params?.fromDate || "",
-    selected_log_type: route.params?.selectedLogType || "",
+onPress={()=>navigation.navigate("Create Production Entry")}
+  // {
+  //   from_date: route.params?.fromDate || "",
+  //   selected_log_type: route.params?.selectedLogType || "",
   
-  })} 
+  // })} 
 style={{flexDirection:"row", alignItems:"center",gap:4}}>
-<Ionicons name="filter-outline" size={20} color="#666" />
-  <Text style={styles.filterText}> Filter</Text>
+<Ionicons name="plus" size={20} color={Colors.whiteColor} />
+  <Text style={styles.AddText}> Add</Text>
 </TouchableOpacity>
-  </View>
+</LinearGradient>
           </View>
 
-          <View style={styles.tableHeader}>
-            <CustomText style={styles.tableHeaderText}>
-              Employee Name
-            </CustomText>
-            <CustomText style={styles.tableHeaderText}>Time</CustomText>
-            <CustomText style={styles.tableHeaderText}>Log Type</CustomText>
-          </View>
 
-          {employeeCheckins.length > 0 ? (
+          {productionEntryList.length > 0 ? (
             <FlatList
-              data={[...employeeCheckins].sort(
-                (a, b) => new Date(b.time) - new Date(a.time)
-              )}
+              data={[...productionEntryList]}
               keyExtractor={(item, index) =>
-                item.time ? item.time.toString() : index.toString()
+                item.name ? item.name.toString() : index.toString()
               }
               renderItem={({ item, index }) => (
                 <View
@@ -142,24 +102,16 @@ style={{flexDirection:"row", alignItems:"center",gap:4}}>
                     },
                   ]}
                 >
-                  <CustomText style={styles.tableCell}>
-                    {item.employee_name}
+                  <TouchableOpacity
+              onPress={() => {
+                navigation.navigate("Create Production Entry", {ProductID: item.name});
+              }}
+              >
+                 <CustomText style={styles.tableCell}>
+                    {item.name ? item.name : "NA"}
                   </CustomText>
-                  <CustomText style={styles.tableCell}>
-                    {item.time ? formatToIST(item.time) : "NA"}
-                  </CustomText>
-                  <Text
-                    style={[
-                      styles.tableCell,
-                      {
-                        color: item.log_type === "IN" ? "green" : "red",
-                        fontWeight: Platform.OS == "ios" ? "600" : null,
-                        fontSize: 13,
-                      },
-                    ]}
-                  >
-                    {item.log_type}
-                  </Text>
+            </TouchableOpacity>
+                 
                 </View>
               )}
             />
@@ -206,26 +158,7 @@ const styles = StyleSheet.create({
     color: Colors.darkGreyColor,
     marginRight: 24,
   },
-  tableHeader: {
-    flexDirection: "row",
-    padding: 20,
-    marginBottom: 8,
-    backgroundColor: Colors.whiteColor,
-    borderRadius: 10,
-    margin: 10,
-    shadowColor: Colors.blackColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 3,
-    elevation: 10,
-  },
-  tableHeaderText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "500",
-    textAlign: "center",
-    color: Colors.blackColor,
-  },
+  
   tableRow: {
     flexDirection: "row",
     shadowColor: "black",
@@ -236,7 +169,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 7,
     marginLeft: 15,
-    marginTop: 4,
+    marginTop: 10,
     marginBottom: 4,
     marginRight: 15,
     backgroundColor: Colors.whiteColor,
@@ -244,9 +177,10 @@ const styles = StyleSheet.create({
   tableCell: {
     flex: 1,
     paddingTop: 5,
-    fontSize: 13,
+    fontSize: 16,
+    paddingLeft: 10,
     fontWeight: Platform.OS == "ios" ? 500 : null,
-    textAlign: "center",
+    textAlign: "left",
     fontFamily: Strings.fontFamilyConstant,
     color: Colors.darkGreyColor,
   },
@@ -280,23 +214,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 20,
   },
-  filterButtonText: {
+  AddText: {
     color: Colors.whiteColor,
     fontSize: 14,
+    fontWeight: "600",
   },
 
   filterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 8,
-    backgroundColor: '#f0f0f0',
     borderRadius: 8,
-    gap: 5,
+    gap:2,
     paddingHorizontal: 10,
   },
   filterText: {
     fontSize: 14,
-    color: '#333',
+    color: Colors.whiteColor,
   },
  
   

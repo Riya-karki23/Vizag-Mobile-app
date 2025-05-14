@@ -5,7 +5,7 @@ import { Strings } from "../constant/string_constant";
 const getAxiosInstance = async () => {
   try {
     const baseURL = await getItemFromStorage(Strings.baseURL);
-    logInfo("baseurl is ---->", baseURL);
+    // logInfo("baseurl is ---->", baseURL);
     if (!baseURL) {
       throw new Error("Base URL not found. Please log in again.");
     }

@@ -51,6 +51,7 @@ import { use } from "react";
 import SalarySlipFilter from "./screens/SalarySlip/SalarySlipFilter";
 import AttendanceFilter from "./screens/Attendance/AttendanceFilter";
 import ProductionEntryList from "./screens/ProductionEntry/ProductionEntryList";
+import CreateProductionEntry from "./screens/ProductionEntry/CreateProductionEntry";
 const Stack = createNativeStackNavigator();
 
 const App = () => {
@@ -244,6 +245,14 @@ const App = () => {
                 component={ProductionEntryList}
                 options={{ headerShown: false }}
               />
+
+               <Stack.Screen
+                name="Create Production Entry"
+                component={CreateProductionEntry}
+                options={{ headerShown: false }}
+              />
+
+              
 
               {/* TaskScreen */}
             </Stack.Navigator>
