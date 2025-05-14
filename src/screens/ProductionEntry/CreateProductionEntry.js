@@ -87,7 +87,6 @@ const CreateProductionEntry = ({ route }) => {
     try {
       const response = await request("GET", Url);
       const result = await response;
-      console.log("result", result.data.data.items);
       if (result.data) {
         setSalesOrderItems(result.data.data.items || []);
       } else {
@@ -141,12 +140,13 @@ const CreateProductionEntry = ({ route }) => {
     setSubmittedItems([]);
   };
 
-  const handleDelete = (id) => {
-    console.log("id>>>", id);
-    const filteredData = updatedTableData.filter((item) => item.idx !== id);
-    showToast("Item deleted successfully!", false);
-    setUpdatedTableData(filteredData);
-  };
+
+const handleDelete = (index) => {
+  const filteredData = updatedTableData.filter((_, i) => i !== index);
+  showToast("Item deleted successfully!", false);
+  setUpdatedTableData(filteredData);
+};
+
 
   const handleSubmit = async () => {
     if (!SelectedSalesOrder) {
@@ -272,6 +272,17 @@ const CreateProductionEntry = ({ route }) => {
     }
   };
 
+
+const decodeHtmlEntities = (text) => {
+    return text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ');
+  };
+
   // if (loading) {
   //   return <Loader isLoading={loading} />;
   // }
@@ -304,7 +315,17 @@ const CreateProductionEntry = ({ route }) => {
                   <View style={styles.verticalLine} />
                   <CustomText style={styles.wideCell}>Item Name</CustomText>
                   <View style={styles.verticalLine} />
+                   <CustomText style={styles.wideCell}>Description</CustomText>
+                  <View style={styles.verticalLine} />
+                   <CustomText style={styles.wideCell}>crimping</CustomText>
+                  <View style={styles.verticalLine} />
+                   <CustomText style={styles.wideCell}>length</CustomText>
+                    <View style={styles.verticalLine} />
                   <CustomText style={styles.wideCell}>Qty</CustomText>
+                  <View style={styles.verticalLine} />
+                   <CustomText style={styles.wideCell}>weight</CustomText>
+                  <View style={styles.verticalLine} />
+                   <CustomText style={styles.wideCell}>uom</CustomText>
                   <View style={styles.verticalLine} />
                   <CustomText style={styles.wideCell}>
                     Delivery Period
@@ -312,55 +333,78 @@ const CreateProductionEntry = ({ route }) => {
                 </View>
 
                 {/* Table Body */}
-                {salesOrderItems.length > 0 ? (
-                  salesOrderItems.map((item, index) => (
-                    <View key={index} style={styles.tableRow}>
-                      <TouchableOpacity
-                        onPress={() => toggleItemSelection(item.idx)}
-                      >
-                        <View style={styles.checkbox}>
-                          {selectedItems.includes(item.idx) && (
-                            <View style={styles.checkboxInner} />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                      <Text style={styles.smallCell}>{item.idx}</Text>
-                      <View style={styles.verticalLine} />
-                      <CustomText
-                        style={styles.wideCell}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {item.item_code}
-                      </CustomText>
-                      <View style={styles.verticalLine} />
-                      <CustomText
-                        style={styles.wideCell}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {item.item_name}
-                      </CustomText>
-                      <View style={styles.verticalLine} />
-                      <CustomText style={styles.wideCell}>
-                        {item.qty}
-                      </CustomText>
-                      <View style={styles.verticalLine} />
-                      <CustomText style={styles.wideCell}>
-                        {item.delivery_date}
-                      </CustomText>
-                      {/* <CustomText style={styles.wideCell}>
-                        {item.time || "N/A"}
-                      </CustomText> */}
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.tableRow}>
-                    <CustomText style={styles.wideCell}>
-                      {Strings.noRecordAvaliable}
-                    </CustomText>
-                  </View>
-                )}
+
+{salesOrderItems.length > 0 ? (
+  salesOrderItems.map((item, index) => {
+    const deliveryDate = new Date(item.delivery_date);
+    const formattedDate = deliveryDate.toISOString().split("T")[0];
+  const date =  new Date().toISOString().split("T")[0];
+    let circleColor = "gray"; 
+    if (formattedDate < date) {
+      circleColor = "green";
+    } else if (formattedDate > date) {
+      circleColor = "red";
+    }else if (formattedDate === date) {
+      circleColor = "yellow";
+    }
+    return (
+      <View key={index} style={styles.tableRow}>
+        <TouchableOpacity onPress={() => toggleItemSelection(item.idx)}>
+          <View style={styles.checkbox}>
+            {selectedItems.includes(item.idx) && (
+              <View style={styles.checkboxInner} />
+            )}
+          </View>
+        </TouchableOpacity>
+        <CustomText style={styles.smallCell}>{item.idx}</CustomText>
+        <View style={styles.verticalLine} />
+                  <View style={[styles.circle, { backgroundColor: circleColor }]} />
+        <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
+          {item.item_code || "N/A"}
+        </CustomText>
+         <View style={styles.verticalLine} />
+        <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
+          {item.item_name || "N/A"}
+        </CustomText>
+        <View style={styles.verticalLine} />
+        <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
+           {decodeHtmlEntities(
+                    item.description .replace(/<\/?[^>]+(>|$)/g, ''),
+                  ) || "N/A"}
+                  </CustomText>
+        <View style={styles.verticalLine} />
+        <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
+          {item.crimping_included || "N/A"}
+        </CustomText>
+        <View style={styles.verticalLine} />
+        <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
+          {item.length || "N/A"}
+        </CustomText>
+        <View style={styles.verticalLine} />
+        <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
+          {item.qty || "N/A"}
+        </CustomText>
+        <View style={styles.verticalLine} />
+        <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
+          {item.sqm_weight || "N/A"}
+        </CustomText>
+        <View style={styles.verticalLine} />
+        <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
+          {item.uom || "N/A"}
+        </CustomText>
+        <View style={styles.verticalLine} />
+        <CustomText style={styles.wideCell}>{item.delivery_date || "N/A"}</CustomText>
+      </View>
+    );
+  })
+) : (
+  <View style={styles.tableRow}>
+    <CustomText style={styles.wideCell}>
+      {Strings.noRecordAvaliable}
+    </CustomText>
+  </View>
+)}
+
               </View>
             </ScrollView>
 
@@ -535,7 +579,7 @@ const CreateProductionEntry = ({ route }) => {
                         {isEditMode ? (
                           <>
                             <TouchableOpacity
-                              onPress={() => handleDelete(item.idx)}
+                              onPress={() => handleDelete(index)}
                               style={styles.iconCell}
                             >
                               <Icon name="delete" size={24} color="red" />
@@ -708,6 +752,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 8,
   },
+  circle: {
+  width: 10,
+  height: 10,
+  borderRadius: 5,
+  marginHorizontal: 5,
+},
+
 });
 
 export default CreateProductionEntry;
