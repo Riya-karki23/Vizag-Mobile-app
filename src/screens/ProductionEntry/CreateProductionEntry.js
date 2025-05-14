@@ -130,7 +130,7 @@ const CreateProductionEntry = ({ route }) => {
       ...item,
       quantity: isEditMode ? (item.quantity ?? item.qty) : item.qty,
       produced_nos: isEditMode ? (item.produced_nos ?? item.amount ?? "") : "",
-      production_date: new Date().toISOString().split("T")[0] ,
+      production_date: new Date().toISOString().split("T")[0],
     }));
 
     setUpdatedTableData((prev) => [...prev, ...processedItems]);
@@ -213,7 +213,9 @@ const CreateProductionEntry = ({ route }) => {
       name: item.name || "item_" + Math.random().toString(36).substring(2, 10),
       quantity: isEditMode ? (item.quantity ?? item.qty) : item.qty,
       produced_nos: isEditMode ? (item.produced_nos ?? item.amount ?? "") : "",
-      production_date:isEditMode ? item.production_date :  new Date().toISOString().split("T")[0],
+      production_date: isEditMode
+        ? item.production_date
+        : new Date().toISOString().split("T")[0],
     }));
 
     const payload = {
@@ -281,30 +283,32 @@ const CreateProductionEntry = ({ route }) => {
           <TopBar />
           <ScrollView style={styles.container} nestedScrollEnabled={true}>
             <SalesOrderDropdown onSelect={handleSalesOrderSelect} />
-            <Text
+            <CustomText
               style={{
                 fontSize: 16,
-                fontWeight: "bold",
+                // fontWeight: "bold",
                 marginTop: 20,
-                color: Colors.black,
+                color: Colors.blackColor,
               }}
             >
               Sales Order Items:
-            </Text>
+            </CustomText>
 
             <ScrollView horizontal={true} style={{ marginVertical: 10 }}>
               <View>
                 {/* Table Header */}
                 <View style={styles.tableRowHeader}>
-                  <Text style={styles.smallCell}>No</Text>
+                  <CustomText style={styles.smallCell}>No</CustomText>
                   <View style={styles.verticalLine} />
-                  <Text style={styles.wideCell}>Item Code</Text>
+                  <CustomText style={styles.wideCell}>Item Code</CustomText>
                   <View style={styles.verticalLine} />
-                  <Text style={styles.wideCell}>Item Name</Text>
+                  <CustomText style={styles.wideCell}>Item Name</CustomText>
                   <View style={styles.verticalLine} />
-                  <Text style={styles.wideCell}>Qty</Text>
+                  <CustomText style={styles.wideCell}>Qty</CustomText>
                   <View style={styles.verticalLine} />
-                  <Text style={styles.wideCell}>Delivery Period</Text>
+                  <CustomText style={styles.wideCell}>
+                    Delivery Period
+                  </CustomText>
                 </View>
 
                 {/* Table Body */}
@@ -322,32 +326,39 @@ const CreateProductionEntry = ({ route }) => {
                       </TouchableOpacity>
                       <Text style={styles.smallCell}>{item.idx}</Text>
                       <View style={styles.verticalLine} />
-                      <Text
+                      <CustomText
                         style={styles.wideCell}
                         numberOfLines={1}
                         ellipsizeMode="tail"
                       >
                         {item.item_code}
-                      </Text>
+                      </CustomText>
                       <View style={styles.verticalLine} />
-                      <Text
+                      <CustomText
                         style={styles.wideCell}
                         numberOfLines={1}
                         ellipsizeMode="tail"
                       >
                         {item.item_name}
-                      </Text>
+                      </CustomText>
                       <View style={styles.verticalLine} />
-                      <Text style={styles.wideCell}>{item.qty}</Text>
+                      <CustomText style={styles.wideCell}>
+                        {item.qty}
+                      </CustomText>
                       <View style={styles.verticalLine} />
-                      <Text style={styles.wideCell}>{item.delivery_date}</Text>
-                      <Text style={styles.wideCell}>{item.time || "N/A"}</Text>
-                        
+                      <CustomText style={styles.wideCell}>
+                        {item.delivery_date}
+                      </CustomText>
+                      {/* <CustomText style={styles.wideCell}>
+                        {item.time || "N/A"}
+                      </CustomText> */}
                     </View>
                   ))
                 ) : (
                   <View style={styles.tableRow}>
-                    <Text style={styles.wideCell}>No data available</Text>
+                    <CustomText style={styles.wideCell}>
+                      {Strings.noRecordAvaliable}
+                    </CustomText>
                   </View>
                 )}
               </View>
@@ -357,11 +368,11 @@ const CreateProductionEntry = ({ route }) => {
               style={styles.Button}
               onPress={handleSendProduction}
             >
-              <Text style={styles.ButtonText}>Send Production</Text>
+              <CustomText style={styles.ButtonText}>Send Production</CustomText>
             </TouchableOpacity>
             <ScrollView horizontal={true} style={{ marginVertical: 10 }}>
               <View>
-                <Text
+                <CustomText
                   style={{
                     fontSize: 16,
                     fontWeight: "bold",
@@ -369,25 +380,31 @@ const CreateProductionEntry = ({ route }) => {
                   }}
                 >
                   Production Table
-                </Text>
+                </CustomText>
                 <View style={styles.tableRowHeader}>
-                  <Text style={styles.smallCell}>No</Text>
+                  <CustomText style={styles.smallCell}>No</CustomText>
                   <View style={styles.verticalLine} />
-                  <Text style={styles.wideCell}>To Produce (Nos)</Text>
+                  <CustomText style={styles.wideCell}>
+                    To Produce (Nos)
+                  </CustomText>
                   <View style={styles.verticalLine} />
-                  <Text style={styles.wideCell}>Produced (Nos)</Text>
+                  <CustomText style={styles.wideCell}>
+                    Produced (Nos)
+                  </CustomText>
                   <View style={styles.verticalLine} />
-                  <Text style={styles.wideCell}>Date</Text>
+                  <CustomText style={styles.wideCell}>Date</CustomText>
                 </View>
 
                 {submittedItems.length > 0 ? (
                   submittedItems.map((item, index) => (
                     <View key={index} style={styles.tableRow}>
-                      <Text style={styles.smallCell}>{item.idx}</Text>
+                      <CustomText style={styles.smallCell}>
+                        {item.idx}
+                      </CustomText>
                       <View style={styles.verticalLine} />
-                      <Text style={[styles.wideCell, { padding: 4 }]}>
+                      <CustomText style={[styles.wideCell, { padding: 4 }]}>
                         {item.qty}
-                      </Text>
+                      </CustomText>
                       <View style={styles.verticalLine} />
 
                       <TextInput
@@ -423,7 +440,9 @@ const CreateProductionEntry = ({ route }) => {
                   ))
                 ) : (
                   <View style={styles.tableRow}>
-                    <Text style={styles.wideCell}>No data available</Text>
+                    <CustomText style={styles.wideCell}>
+                      {Strings.noRecordAvaliable}
+                    </CustomText>
                   </View>
                 )}
               </View>
@@ -433,12 +452,14 @@ const CreateProductionEntry = ({ route }) => {
               style={styles.Button}
               onPress={completedProduction}
             >
-              <Text style={styles.ButtonText}>Complete Production</Text>
+              <CustomText style={styles.ButtonText}>
+                Complete Production
+              </CustomText>
             </TouchableOpacity>
 
             <ScrollView horizontal={true} style={{ marginVertical: 10 }}>
               <View>
-                <Text
+                <CustomText
                   style={{
                     fontSize: 16,
                     fontWeight: "bold",
@@ -446,20 +467,24 @@ const CreateProductionEntry = ({ route }) => {
                   }}
                 >
                   Completed Order
-                </Text>
+                </CustomText>
                 <View style={styles.tableRowHeader}>
-                  <Text style={styles.smallCell}>No</Text>
+                  <CustomText style={styles.smallCell}>No</CustomText>
                   <View style={styles.verticalLine} />
-                  <Text style={styles.wideCell}>To Produce (Nos)</Text>
+                  <CustomText style={styles.wideCell}>
+                    To Produce (Nos)
+                  </CustomText>
                   <View style={styles.verticalLine} />
-                  <Text style={styles.wideCell}>Produced (Nos)</Text>
+                  <CustomText style={styles.wideCell}>
+                    Produced (Nos)
+                  </CustomText>
                   <View style={styles.verticalLine} />
-                  <Text style={styles.wideCell}>Date</Text>
+                  <CustomText style={styles.wideCell}>Date</CustomText>
                   <View style={styles.verticalLine} />
 
                   {isEditMode ? (
                     <>
-                      <Text style={styles.smallCell}>❌</Text>
+                      <CustomText style={styles.smallCell}>❌</CustomText>
                       <View style={styles.verticalLine} />
                     </>
                   ) : null}
@@ -469,11 +494,13 @@ const CreateProductionEntry = ({ route }) => {
                   updatedTableData.map((item, index) => {
                     return (
                       <View key={index} style={styles.tableRow}>
-                        <Text style={styles.smallCell}>{item.idx}</Text>
+                        <CustomText style={styles.smallCell}>
+                          {item.idx}
+                        </CustomText>
                         <View style={styles.verticalLine} />
-                        <Text style={[styles.wideCell, { padding: 4 }]}>
+                        <CustomText style={[styles.wideCell, { padding: 4 }]}>
                           {isEditMode ? (item.quantity ?? item.qty) : item.qty}
-                        </Text>
+                        </CustomText>
                         <View style={styles.verticalLine} />
                         <TextInput
                           style={[
@@ -499,11 +526,11 @@ const CreateProductionEntry = ({ route }) => {
                           }}
                         />
                         <View style={styles.verticalLine} />
-                        <Text style={styles.wideCell}>
+                        <CustomText style={styles.wideCell}>
                           {isEditMode
                             ? (item.production_date?.split(" ")[0] ?? "")
                             : (item.date ?? "")}
-                        </Text>
+                        </CustomText>
                         <View style={styles.verticalLine} />
                         {isEditMode ? (
                           <>
@@ -520,7 +547,9 @@ const CreateProductionEntry = ({ route }) => {
                   })
                 ) : (
                   <View style={styles.tableRow}>
-                    <Text style={styles.wideCell}>No data available</Text>
+                    <CustomText style={styles.wideCell}>
+                      {Strings.noRecordAvaliable}
+                    </CustomText>
                   </View>
                 )}
               </View>

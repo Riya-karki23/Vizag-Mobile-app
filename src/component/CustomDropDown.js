@@ -1,26 +1,20 @@
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Dropdown } from 'react-native-element-dropdown';
-import { Colors } from '../constant/color';
-import CustomText from './CustomText/customText';
+import React, { useState } from "react";
+import { View, StyleSheet } from "react-native";
+import { Dropdown } from "react-native-element-dropdown";
+import { Colors } from "../constant/color";
+import CustomText from "./CustomText/customText";
+import { Strings } from "../constant/string_constant";
 
-
-
-const DropdownInput = ({
-  title,
-  options,
-  value,
-  onSelect,
-}) => {
+const DropdownInput = ({ title, options, value, onSelect }) => {
   const [selectedValue, setSelectedValue] = useState(null);
 
-  const formattedOptions = (options ?? []).map(item => {
-    if ('project_name' in item && item.project_name) {
+  const formattedOptions = (options ?? []).map((item) => {
+    if ("project_name" in item && item.project_name) {
       return {
         label: `${item.name} - ${item.project_name}`,
         value: item.name,
       };
-    } else if ('subject' in item && item.subject) {
+    } else if ("subject" in item && item.subject) {
       return {
         label: `${item.name} - ${item.subject}`,
         value: item.name,
@@ -41,20 +35,23 @@ const DropdownInput = ({
         data={formattedOptions || []}
         labelField="label"
         valueField="value"
-        placeholderStyle={{color: Colors.blackColor }}
+        placeholderStyle={{
+          color: Colors.blackColor,
+          fontFamily: Strings.fontFamilyConstant,
+        }}
         placeholder={`Select ${title}`}
         search
-        searchPlaceholder="Search..." 
-        inputSearchStyle={styles.searchInput} 
+        searchPlaceholder="Search..."
+        inputSearchStyle={styles.searchInput}
         value={selectedValue || value}
         iconColor={Colors.blackColor}
         iconStyle={{ width: 30, height: 30 }}
         containerStyle={{ maxHeight: 200 }}
         selectedTextStyle={{
-    color: Colors.blackColor,
+          color: Colors.blackColor,
           fontSize: 16,
         }}
-        onChange={item => {
+        onChange={(item) => {
           setSelectedValue(item.value);
           onSelect(item.value);
         }}
@@ -62,13 +59,15 @@ const DropdownInput = ({
           <View
             style={{
               padding: 10,
-              backgroundColor: selected ? '#e0f7fa' : 'white',
-            }}>
+              backgroundColor: selected ? "#e0f7fa" : "white",
+            }}
+          >
             <CustomText
               style={{
-    color: Colors.greyishBlueColor,
-                fontWeight: 'bold',
-              }}>
+                color: Colors.greyishBlueColor,
+                // fontWeight: 'bold',
+              }}
+            >
               {item.label}
             </CustomText>
           </View>
@@ -87,7 +86,7 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     height: 60,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 10,
@@ -99,13 +98,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 8,
     margin: 10,
+    fontFamily: Strings.fontFamilyConstant,
     color: Colors.blackColor,
   },
 });
 
 export default DropdownInput;
-
-
-
-
-  

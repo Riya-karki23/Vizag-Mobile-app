@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -18,10 +17,9 @@ import BackgroundWrapper from "../../Background";
 import images from "../../constant/image";
 import { useIsFocused, useNavigation } from "@react-navigation/native";
 import { TouchableOpacity } from "react-native";
-import Ionicons from 'react-native-vector-icons/Entypo';
+import Ionicons from "react-native-vector-icons/Entypo";
 import { fetchProductionEntryData } from "../../api/productionEntry/fetchProductionEntryData";
 import LinearGradient from "react-native-linear-gradient";
-
 
 const { width, height } = Dimensions.get("window");
 const baseWidth = 375;
@@ -35,56 +33,59 @@ const ProductionEntryList = ({ route }) => {
   const [productionEntryList, setProductionEntryList] = useState([]);
   const isFocused = useIsFocused();
 
+  const filterData = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchProductionEntryData();
+      setProductionEntryList(data.data);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const filterData = async () => {
-  try {
-    setLoading(true);
-    const data = await fetchProductionEntryData();
-    setProductionEntryList(data.data);
-  } catch (error) {
-    setError(error.message);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-useEffect(() => {
-filterData();
-}, [isFocused]);
-
+  useEffect(() => {
+    filterData();
+  }, [isFocused]);
 
   if (loading) {
     return <Loader isLoading={loading} />;
   }
 
-
-
   return (
-<BackgroundWrapper imageSource={images.mainBackground}>
+    <BackgroundWrapper imageSource={images.mainBackground}>
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.container}>
           <TopBar />
           <View style={styles.filterButtons}>
-          <CustomText style={styles.headerText}>Production Entry</CustomText>
-   <LinearGradient
-          colors={[Colors.orangeColor, Colors.redColor]}
-          style={styles.filterContainer}
-        >
-<TouchableOpacity 
-onPress={()=>navigation.navigate("Create Production Entry")}
-  // {
-  //   from_date: route.params?.fromDate || "",
-  //   selected_log_type: route.params?.selectedLogType || "",
-  
-  // })} 
-style={{flexDirection:"row", alignItems:"center",gap:4}}>
-<Ionicons name="plus" size={20} color={Colors.whiteColor} />
-  <Text style={styles.AddText}> Add</Text>
-</TouchableOpacity>
-</LinearGradient>
-          </View>
+            <CustomText style={styles.headerText}>Production Entry</CustomText>
+            {/* <LinearGradient
+              colors={[Colors.orangeColor, Colors.redColor]}
+              style={styles.filterContainer}
+            > */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Create Production Entry")}
+              // {
+              //   from_date: route.params?.fromDate || "",
+              //   selected_log_type: route.params?.selectedLogType || "",
 
+              // })}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                height: 40,
+                borderWidth: 1,
+                borderColor: Colors.blackColor,
+                borderRadius: 10,
+                padding: 4,
+              }}
+            >
+              <Ionicons name="plus" size={20} color={Colors.blackColor} />
+              <CustomText style={styles.AddText}> Add</CustomText>
+            </TouchableOpacity>
+            {/* </LinearGradient> */}
+          </View>
 
           {productionEntryList.length > 0 ? (
             <FlatList
@@ -93,26 +94,27 @@ style={{flexDirection:"row", alignItems:"center",gap:4}}>
                 item.name ? item.name.toString() : index.toString()
               }
               renderItem={({ item, index }) => (
-                <View
-                  style={[
-                    styles.tableRow,
-                    {
-                      backgroundColor:
-                        index % 2 === 0 ? Colors.tableRowColor : "white",
-                    },
-                  ]}
+                <TouchableOpacity
+                  onPress={() => {
+                    navigation.navigate("Create Production Entry", {
+                      ProductID: item.name,
+                    });
+                  }}
                 >
-                  <TouchableOpacity
-              onPress={() => {
-                navigation.navigate("Create Production Entry", {ProductID: item.name});
-              }}
-              >
-                 <CustomText style={styles.tableCell}>
-                    {item.name ? item.name : "NA"}
-                  </CustomText>
-            </TouchableOpacity>
-                 
-                </View>
+                  <View
+                    style={[
+                      styles.tableRow,
+                      {
+                        backgroundColor:
+                          index % 2 === 0 ? Colors.tableRowColor : "white",
+                      },
+                    ]}
+                  >
+                    <CustomText style={styles.tableCell}>
+                      {item.name ? item.name : "NA"}
+                    </CustomText>
+                  </View>
+                </TouchableOpacity>
               )}
             />
           ) : (
@@ -158,7 +160,7 @@ const styles = StyleSheet.create({
     color: Colors.darkGreyColor,
     marginRight: 24,
   },
-  
+
   tableRow: {
     flexDirection: "row",
     shadowColor: "black",
@@ -215,25 +217,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   AddText: {
-    color: Colors.whiteColor,
+    color: Colors.blackColor,
     fontSize: 14,
-    fontWeight: "600",
+    // fontWeight: "600",
   },
 
   filterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 8,
     borderRadius: 8,
-    gap:2,
+    gap: 2,
     paddingHorizontal: 10,
   },
   filterText: {
     fontSize: 14,
     color: Colors.whiteColor,
   },
- 
-  
 });
 
 export default ProductionEntryList;
