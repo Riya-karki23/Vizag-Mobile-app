@@ -283,8 +283,12 @@ const ExpensesScreen = () => {
 
   if (error) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
-        <CustomText style={styles.errorText}>Error: {error}</CustomText>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: "white", justifyContent: "center" }}
+      >
+        <CustomText style={styles.errorText}>
+          {Strings.noNetworkAvailable}
+        </CustomText>
       </SafeAreaView>
     );
   }
@@ -307,7 +311,10 @@ const ExpensesScreen = () => {
               onPress={() => setModalVisible(true)}
             >
               <CustomText
-                style={[styles.addButtonText, { color: Colors.blackColor }]}
+                style={[
+                  styles.addButtonText,
+                  { color: Colors.blackColor, paddingHorizontal: 15 },
+                ]}
               >
                 Add Expense Claim
               </CustomText>
@@ -624,11 +631,11 @@ const styles = StyleSheet.create({
   addButton: {
     borderRadius: 10,
     height: 42,
-    marginLeft: 10,
+    marginHorizontal: 10,
     flexWrap: "wrap",
-    paddingHorizontal: 21,
     alignContent: "center",
     justifyContent: "center",
+    alignItems: "center",
     marginBottom: 15,
   },
   addButtonText: {
@@ -818,9 +825,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   errorText: {
-    color: Colors.expenseErrorColor,
+    color: "red",
+    marginHorizontal: 20,
+    fontSize: 17,
     textAlign: "center",
-    marginTop: 20,
   },
   expenseList: {
     marginTop: 20,

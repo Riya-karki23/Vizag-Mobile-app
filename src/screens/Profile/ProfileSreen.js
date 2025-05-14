@@ -110,7 +110,7 @@ const ProfileScreen = () => {
     setLogoutModalVisible(false);
 
     try {
-      await clearExceptKeys(Strings.baseURL);
+      await clearExceptKeys([Strings.baseURL, Strings.companyLogo]);
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -124,7 +124,7 @@ const ProfileScreen = () => {
       Alert.alert("Logout Error", "An error occurred while logging out.");
     }
   };
-  const clearExceptKeys = async (keysToKeep) => {
+  const clearExceptKeys = async (keysToKeep = []) => {
     try {
       const keys = await AsyncStorage.getAllKeys();
       const keysToDelete = keys.filter((key) => !keysToKeep.includes(key));
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+
     marginBottom: 10,
     color: Colors.darkGreyColor,
   },
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: Colors.whiteColor,
-    fontWeight: "bold",
+    // fontWeight: "bold",
     textAlign: "center",
   },
   initialText: {

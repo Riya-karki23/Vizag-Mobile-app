@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 
 export const Strings = {
   noDataAvailable: "No data available at the moment. Please try again later.",
+  noNetworkAvailable: "Something went wrong. Please try again after some time.",
   fontFamilyConstant: Platform.OS == "ios" ? "Nunito" : "Nunito-SemiBold",
   noLeavesAllocated: "No leaves have been allocated.",
   logType: "logType",
@@ -10,6 +11,7 @@ export const Strings = {
   userName: "userName",
   isLoggedIn: "isLoggedIn",
   baseURL: "baseURL",
+  companyLogo: "companyLogo",
   offceCoordinate: "offceCoordinate",
   offceGeoFenceRadius: "offceGeoFenceRadius",
   designation: "designation",

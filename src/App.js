@@ -240,7 +240,7 @@ const App = () => {
                 options={{ headerShown: false }}
               />
 
-               <Stack.Screen
+              <Stack.Screen
                 name="Production Entry"
                 component={ProductionEntryList}
                 options={{ headerShown: false }}
