@@ -304,6 +304,7 @@ const LoginForm = () => {
                       setImageError(true);
                       setcompanyImage("");
                     }}
+                    resizeMode="contain"
                     style={styles.multarkLogo}
                   />
                 </View>

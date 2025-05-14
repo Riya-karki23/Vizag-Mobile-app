@@ -17,8 +17,8 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   multarkLogo: {
-    width: 250,
-    height: 60,
+    width: 280,
+    height: 100,
   },
   loginImage: {
     width: 273.76,

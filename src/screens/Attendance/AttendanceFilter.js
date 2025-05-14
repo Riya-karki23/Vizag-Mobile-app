@@ -48,7 +48,6 @@ const AttendanceFilter = ({ navigation, route }) => {
 
   const handleSelectLogType = async (logType) => {
     setSelectedLogType(logType);
-    console.log("selectedLogType>>>", selectedLogType);
 
     setShowDropdown(false);
   };

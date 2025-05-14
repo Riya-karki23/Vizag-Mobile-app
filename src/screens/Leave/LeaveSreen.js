@@ -313,8 +313,12 @@ const LeaveScreen = () => {
 
   if (error) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
-        <CustomText style={styles.errorText}>Error: {error}</CustomText>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: "white", justifyContent: "center" }}
+      >
+        <CustomText style={styles.errorText}>
+          {Strings.noNetworkAvailable}
+        </CustomText>
       </SafeAreaView>
     );
   }
@@ -340,7 +344,10 @@ const LeaveScreen = () => {
               onPress={handleAddLeave}
             >
               <CustomText
-                style={[styles.addButtonText, { color: Colors.blackColor }]}
+                style={[
+                  styles.addButtonText,
+                  { color: Colors.blackColor, paddingHorizontal: 10 },
+                ]}
               >
                 Apply Leave
               </CustomText>
@@ -823,10 +830,13 @@ const styles = StyleSheet.create({
   addButton: {
     borderRadius: 10,
     height: 42,
-    paddingHorizontal: 21,
     marginLeft: 10,
     justifyContent: "center",
     marginBottom: 15,
+    alignItems: "center",
+    alignContent: "center",
+    marginTop: 15,
+    marginHorizontal: 15,
   },
   addButtonText: {
     color: Colors.whiteColor,
@@ -960,6 +970,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "red",
+    marginHorizontal: 20,
+    fontSize: 17,
     textAlign: "center",
   },
   noDataText: {
