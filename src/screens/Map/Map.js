@@ -162,6 +162,20 @@ const MAP = ({ navigation, route }) => {
                           value: "Marketing",
                         });
                       setAvailableOptions(newOptions);
+                    } else if (employee.department === "Accounts - V") {
+                      const newOptions = options
+                        .filter(
+                          (option) =>
+                            option.value !== "Office" &&
+                            option.value !== "Onfield"
+                        )
+                        .concat({
+                          label: "Work from Home",
+                          value: "Work from Home",
+                        });
+                      setAvailableOptions(newOptions);
+                      setWorkFrom(newOptions[0].value);
+                      setSelectedLocation(newOptions[0].value);
                     } else {
                       setWorkFrom(options[1].value);
                       setSelectedLocation(options[1].value);

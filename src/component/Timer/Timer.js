@@ -196,11 +196,11 @@ const Timer = ({ punchInTime, punchOutTime }) => {
 
     return `${hours.toString().padStart(2, "0")}:${minutes
       .toString()
-      .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+      .padStart(2, "0")}`;
   };
   const timeStringToMilliseconds = (timeString) => {
     const [hours, minutes, seconds] = timeString.split(":").map(Number);
-    return (hours * 3600 + minutes * 60 + seconds) * 1000;
+    return (hours * 3600 + minutes * 60) * 1000;
   };
   const addFormattedStartTimeAndElapsed = (formattedStartTime, elapsedTime) => {
     let startTimeInMilliseconds = formattedStartTime
@@ -300,11 +300,12 @@ const Timer = ({ punchInTime, punchOutTime }) => {
   return (
     <View style={styles.container}>
       <CustomText style={styles.timerHeadingText}>
-        Logged In Duration :
+        Total Working Hour :
       </CustomText>
       {!loading && (
         <CustomText style={styles.timerText}>
-          {addFormattedStartTimeAndElapsed(formattedStartTime, elapsedTime)}
+          {addFormattedStartTimeAndElapsed(formattedStartTime, elapsedTime)}{" "}
+          {"hr/min"}
         </CustomText>
       )}
     </View>

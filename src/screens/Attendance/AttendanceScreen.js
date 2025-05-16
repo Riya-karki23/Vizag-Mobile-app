@@ -95,6 +95,31 @@ const AttendanceScreen = ({ route }) => {
     const adjustedHours = (hours % 12 || 12).toString().padStart(2, "0");
     return `${day}/${month}/${year} \n${adjustedHours}:${minutes} ${period}`;
   };
+  const getTotalWorkHoursForDate = (checkins, date, employeeName) => {
+    const logs = checkins
+      .filter((entry) => {
+        const logDate = new Date(entry.time).toDateString();
+        return (
+          new Date(entry.time).toDateString() ===
+            new Date(date).toDateString() &&
+          entry.employee_name === employeeName
+        );
+      })
+      .sort((a, b) => new Date(a.time) - new Date(b.time));
+
+    let totalMilliseconds = 0;
+    for (let i = 0; i < logs.length; i++) {
+      if (logs[i].log_type === "IN" && logs[i + 1]?.log_type === "OUT") {
+        const inTime = new Date(logs[i].time);
+        const outTime = new Date(logs[i + 1].time);
+        totalMilliseconds += outTime - inTime;
+        i++;
+      }
+    }
+
+    const totalHours = totalMilliseconds / (1000 * 60 * 60);
+    return totalHours.toFixed(2) + " hrs";
+  };
 
   return (
     <BackgroundWrapper imageSource={images.mainBackground}>
@@ -126,6 +151,9 @@ const AttendanceScreen = ({ route }) => {
             <CustomText style={styles.tableHeaderText}>Time</CustomText>
             <CustomText style={styles.tableHeaderText}>
               Shift Timings
+            </CustomText>
+            <CustomText style={styles.tableHeaderText}>
+              Total Work Hours
             </CustomText>
             <CustomText style={styles.tableHeaderText}>Log Type</CustomText>
           </View>
@@ -175,6 +203,15 @@ const AttendanceScreen = ({ route }) => {
                             return "NA";
                           }
                         })()
+                      : "NA"}
+                  </CustomText>
+                  <CustomText style={styles.tableCell}>
+                    {employeeCheckins
+                      ? getTotalWorkHoursForDate(
+                          employeeCheckins,
+                          item.time,
+                          item.employee_name
+                        )
                       : "NA"}
                   </CustomText>
                   <CustomText
