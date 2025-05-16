@@ -3,10 +3,10 @@ import { request } from "../auth/auth";
 export const fetchEmployeeCheckins = async (
   userName = null,
   selectedDate = null,
-  logType = null,
+  logType = null
 ) => {
   try {
-    let apiUrl = `/api/resource/Employee Checkin?fields=["employee_name","employee","time","log_type"]&limit_start=0&limit_page_length=0&employee=${encodeURIComponent(userName)}`;
+    let apiUrl = `/api/resource/Employee Checkin?fields=["employee_name","employee","time","log_type","shift"]&limit_start=0&limit_page_length=0&employee=${encodeURIComponent(userName)}`;
 
     let filters = [];
 
@@ -14,7 +14,6 @@ export const fetchEmployeeCheckins = async (
       filters.push(["Employee Checkin", "log_type", "=", logType]);
     }
 
-   
     if (selectedDate) {
       filters.push([
         "Employee Checkin",

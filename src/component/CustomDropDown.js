@@ -64,7 +64,7 @@ const DropdownInput = ({ title, options, value, onSelect }) => {
           >
             <CustomText
               style={{
-                color: Colors.greyishBlueColor,
+                color: Colors.blackColor,
                 // fontWeight: 'bold',
               }}
             >
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     color: Colors.blackColor,
   },
   dropdown: {
-    height: 60,
+    height: 50,
     borderColor: "#ccc",
     borderWidth: 1,
     borderRadius: 8,

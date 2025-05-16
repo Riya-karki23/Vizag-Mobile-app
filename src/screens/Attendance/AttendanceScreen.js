@@ -21,6 +21,7 @@ import { getItemFromStorage } from "../../utils/asyncStorage";
 
 import { TouchableOpacity } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { request } from "../../api/auth/auth";
 
 const { width, height } = Dimensions.get("window");
 const baseWidth = 375;
@@ -32,6 +33,7 @@ const AttendanceScreen = ({ route }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userName, setUserName] = useState("");
+  const [shiftTypeList, setSetShiftTypeList] = useState([]);
   const navigation = useNavigation();
 
   const filterData = async (storedUserName) => {
@@ -39,7 +41,6 @@ const AttendanceScreen = ({ route }) => {
       setLoading(true);
       const fromDate = route.params?.fromDate || "";
       const selectedLogType = route.params?.selectedLogType || "";
-
       const data = await fetchEmployeeCheckins(
         storedUserName,
         fromDate,
@@ -52,6 +53,17 @@ const AttendanceScreen = ({ route }) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const setShiftData = async () => {
+      const shiftTypeListData = await request(
+        "GET",
+        `/api/resource/Shift Type?fields=["name","start_time","end_time"]`
+      );
+      setSetShiftTypeList(shiftTypeListData.data.data);
+    };
+    setShiftData();
+  }, [userName]);
 
   useEffect(() => {
     const loadUserAndData = async () => {
@@ -112,6 +124,9 @@ const AttendanceScreen = ({ route }) => {
               Employee Name
             </CustomText>
             <CustomText style={styles.tableHeaderText}>Time</CustomText>
+            <CustomText style={styles.tableHeaderText}>
+              Shift Timings
+            </CustomText>
             <CustomText style={styles.tableHeaderText}>Log Type</CustomText>
           </View>
 
@@ -138,6 +153,29 @@ const AttendanceScreen = ({ route }) => {
                   </CustomText>
                   <CustomText style={styles.tableCell}>
                     {item.time ? formatToIST(item.time) : "NA"}
+                  </CustomText>
+                  <CustomText style={styles.tableCell}>
+                    {shiftTypeList?.length > 0
+                      ? (() => {
+                          const matchedShift = shiftTypeList.find(
+                            (shift) => shift.name === item?.shift
+                          );
+                          if (matchedShift) {
+                            const formatTime = (timeStr) => {
+                              const date = new Date(`1970-01-01T${timeStr}`);
+                              return date.toLocaleTimeString([], {
+                                hour: "numeric",
+                                minute: "2-digit",
+                                hour12: true,
+                              });
+                            };
+
+                            return `${matchedShift.name} ${formatTime(matchedShift.start_time)} - ${formatTime(matchedShift.end_time)}`;
+                          } else {
+                            return "NA";
+                          }
+                        })()
+                      : "NA"}
                   </CustomText>
                   <CustomText
                     style={[

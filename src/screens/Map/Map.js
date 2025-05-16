@@ -41,6 +41,8 @@ const MAP = ({ navigation, route }) => {
   const { imageUrl } = route.params || "";
   const isFocus = useIsFocused();
   const [employeeShift, setEmployeeShift] = useState(null);
+  const [shiftTypeList, setSetShiftTypeList] = useState([]);
+  const [shiftDropDownVisible, setshiftDropDownVisible] = useState(false);
   const [geofenceRadius, setgeofenceRadius] = useState(null);
   const [naviMumbaiLocation, setNaviMumbaiLocation] = useState({
     latitude: null,
@@ -70,7 +72,7 @@ const MAP = ({ navigation, route }) => {
   const options = [
     { label: "Office", value: "Office" },
     { label: "Onfield", value: "Onfield" },
-    { label: "Work from Home", value: "Work from Home" },
+    // { label: "Work from Home", value: "Work from Home" },
   ];
   useEffect(() => {
     init();
@@ -81,6 +83,8 @@ const MAP = ({ navigation, route }) => {
       setLoading(true);
       const permission = await requestLocationPermission();
       setPermissionGranted(permission);
+      const storedUserName = await getItemFromStorage(Strings.userName);
+      setUsername(storedUserName || "");
       if (permission) {
         try {
           try {
@@ -139,9 +143,40 @@ const MAP = ({ navigation, route }) => {
                   );
                   setLoading(false);
                 } else {
-                  setAvailableOptions(
-                    options.filter((option) => option.value !== "Office")
+                  const employeeResponse = await request(
+                    "GET",
+                    `/api/resource/Employee?filters=[["user_id", "=", "${storedUserName}"]]&fields=["company","name","default_shift","department"]`
                   );
+
+                  const employee = employeeResponse.data.data[0];
+                  if (employee) {
+                    if (employee.department === "Sales - V") {
+                      const newOptions = options
+                        .filter(
+                          (option) =>
+                            option.value !== "Office" &&
+                            option.value !== "Work from Home"
+                        )
+                        .concat({
+                          label: "Marketing",
+                          value: "Marketing",
+                        });
+                      setAvailableOptions(newOptions);
+                    } else {
+                      setWorkFrom(options[1].value);
+                      setSelectedLocation(options[1].value);
+                      setAvailableOptions(
+                        options.filter((option) => option.value !== "Office")
+                      );
+                    }
+                  } else {
+                    logError(
+                      "Employee not found for the given user",
+                      employeeResponse.data.data[0]
+                    );
+                    showToast("Employee not found for the given user");
+                  }
+
                   setLoading(false);
                 }
               } else {
@@ -170,9 +205,6 @@ const MAP = ({ navigation, route }) => {
         setLoading(false);
         showToast("Location permission is required to use this feature.");
       }
-
-      const storedUserName = await getItemFromStorage(Strings.userName);
-      setUsername(storedUserName || "");
     } catch (error) {
       setLoading(false);
       logError("Initialization error:", error);
@@ -208,13 +240,17 @@ const MAP = ({ navigation, route }) => {
           setUserData(userResponse.data.data);
           const employeeResponse = await request(
             "GET",
-            `/api/resource/Employee?filters=[["user_id", "=", "${userName}"]]&fields=["company","name","default_shift"]`
+            `/api/resource/Employee?filters=[["user_id", "=", "${userName}"]]&fields=["company","name","default_shift","department"]`
           );
-
+          const shiftTypeList = await request(
+            "GET",
+            `/api/resource/Shift Type?fields=["name","start_time","end_time"]`
+          );
+          setSetShiftTypeList(shiftTypeList.data.data);
           if (employeeResponse.data.data[0]) {
             const employee = employeeResponse.data.data[0];
             setEmployeeId(employee.name);
-            setEmployeeShift(employee.default_shift);
+            // setEmployeeShift(employee.default_shift);
             setcompanyName(employee.company);
           } else {
             logError(
@@ -283,6 +319,11 @@ const MAP = ({ navigation, route }) => {
   const handlePunchIn = async () => {
     if (workFrom === "Select Your Location") {
       showToast("Please Select Your Location");
+      return;
+    }
+
+    if (employeeShift === null) {
+      showToast("Please Select Your Shift");
       return;
     }
 
@@ -381,7 +422,11 @@ const MAP = ({ navigation, route }) => {
 
   const handlePunchOut = async () => {
     setLoading(true);
-
+    if (employeeShift === null) {
+      showToast("Please Select Your Shift");
+      setLoading(false);
+      return;
+    }
     try {
       const locationData = await getCurrentLocation(permissionGranted);
       if (!locationData) {
@@ -563,7 +608,60 @@ const MAP = ({ navigation, route }) => {
                   color={Colors.orangeColor}
                 />
               </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  LayoutAnimation.configureNext(
+                    LayoutAnimation.Presets.easeInEaseOut
+                  );
+                  setshiftDropDownVisible(!shiftDropDownVisible);
+                }}
+                style={{ marginTop: 10 }}
+              >
+                <TextInput
+                  style={styles.input}
+                  pointerEvents="none"
+                  placeholderTextColor={Colors.blackColor}
+                  placeholder={employeeShift || "Select Your Shift"}
+                  selectedValue={employeeShift}
+                  editable={false}
+                />
+              </TouchableOpacity>
 
+              {shiftDropDownVisible && (
+                <View
+                  style={{
+                    shadowColor: Colors.blackColor,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 5,
+                    borderColor: Colors.lightGreyColor,
+                    padding: 4,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    fontSize: 14,
+                    marginTop: 10,
+                    marginHorizontal: 15,
+                    backgroundColor: Colors.whiteColor,
+                  }}
+                >
+                  {shiftTypeList.map((shift, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => {
+                        setEmployeeShift(shift.name);
+                        setshiftDropDownVisible(false);
+                      }}
+                      style={styles.dropdownItem}
+                    >
+                      <CustomText style={{ color: Colors.blackColor }}>
+                        {shift.name} {"("}
+                        {shift.start_time}-{shift.end_time}
+                        {")"}
+                      </CustomText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
               {isPunchedIn && (
                 <>
                   <View style={styles.noteContainer}>
@@ -663,7 +761,10 @@ const MAP = ({ navigation, route }) => {
                 <>
                   <TouchableOpacity
                     onPress={() => {
-                      if (workFrom !== "Office") {
+                      if (
+                        workFrom !== "Office" &&
+                        availableOptions.length > 1
+                      ) {
                         LayoutAnimation.configureNext(
                           LayoutAnimation.Presets.easeInEaseOut
                         );
@@ -712,7 +813,7 @@ const MAP = ({ navigation, route }) => {
                       ))}
                     </View>
                   )}
-                  <View
+                  {/* <View
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
@@ -744,7 +845,7 @@ const MAP = ({ navigation, route }) => {
                         Are you starting your night shift?
                       </CustomText>
                     </TouchableOpacity>
-                  </View>
+                  </View> */}
                   <TouchableOpacity onPress={handlePunchIn}>
                     <LinearGradient
                       colors={[Colors.orangeColor, Colors.redColor]}

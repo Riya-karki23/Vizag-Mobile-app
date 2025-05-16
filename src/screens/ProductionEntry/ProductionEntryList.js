@@ -75,14 +75,15 @@ const ProductionEntryList = ({ route }) => {
                 flexDirection: "row",
                 alignItems: "center",
                 height: 40,
-                borderWidth: 1,
+                borderWidth: 1.5,
+                gap: 5,
                 borderColor: Colors.blackColor,
                 borderRadius: 10,
-                padding: 4,
+                padding: 5,
               }}
             >
-              <Ionicons name="plus" size={20} color={Colors.blackColor} />
-              <CustomText style={styles.AddText}> Add</CustomText>
+              <Ionicons name="plus" size={25} color={Colors.blackColor} />
+              {/* <CustomText style={styles.AddText}> ADD</CustomText> */}
             </TouchableOpacity>
             {/* </LinearGradient> */}
           </View>
@@ -218,7 +219,7 @@ const styles = StyleSheet.create({
   },
   AddText: {
     color: Colors.blackColor,
-    fontSize: 14,
+    fontSize: 16,
     // fontWeight: "600",
   },
 
