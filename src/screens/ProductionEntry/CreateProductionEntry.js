@@ -50,6 +50,8 @@ const CreateProductionEntry = ({ route }) => {
   const [updatedTableData, setUpdatedTableData] = useState([]);
   const [readonlyItems, setReadonlyItems] = useState([]);
   const [productIdData, setProductIdData] = useState(null);
+  const [SalesOrderTime, setSalesOrderTime] = useState(null);
+  const [salesOderStatus, setSalesOrderStatus] = useState(null);
 
   const ProductID = route?.params?.ProductID || null;
   const isEditMode = !!ProductID;
@@ -65,8 +67,12 @@ const CreateProductionEntry = ({ route }) => {
       setSelectedSalesOrder(productIdData.select);
       setSalesOrderItems(productIdData.sales_order_item || []);
       setUpdatedTableData(productIdData.updated_sales_order || []);
+      FetchSalesOrderTime(productIdData.select);
+      setSalesOrderTime(productIdData.time);
+      setSalesOrderStatus(productIdData.status);
     }
   }, [isEditMode, productIdData]);
+
 
   const fetchProductIdData = async () => {
     setLoading(true);
@@ -89,6 +95,10 @@ const CreateProductionEntry = ({ route }) => {
       const result = await response;
       if (result.data) {
         setSalesOrderItems(result.data.data.items || []);
+        setSalesOrderTime(result.data.data.time);
+        setSalesOrderStatus(result.data.data.status);
+
+        
       } else {
         showToast("Could not fetch Sales Order data.", true);
       }
@@ -97,6 +107,24 @@ const CreateProductionEntry = ({ route }) => {
       showToast("Error fetching Sales Order", true);
     }
   };
+
+  const FetchSalesOrderTime =  async(salesOrderId) => {
+     const Url = `${AppRoutes.SALESORDER}/${salesOrderId}`;
+
+    try {
+      const response = await request("GET", Url);
+      const result = await response;
+      if (result.data) {
+        setSalesOrderTime(result.data.data.time);
+        setSalesOrderStatus(result.data.data.status);
+      } else {
+        showToast("Could not fetch Sales Order data.", true);
+      }
+    } catch (error) {
+      console.log("Sales order fetch error:", error);
+      showToast("Error fetching Sales Order", true);
+    }
+  }
 
   const toggleItemSelection = (itemId) => {
     let updatedSelection;
@@ -283,6 +311,42 @@ const decodeHtmlEntities = (text) => {
       .replace(/&nbsp;/g, ' ');
   };
 
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return "N/A";
+  const date = new Date(dateStr);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+
+const formatTime = (timeStr) => {
+
+  if (!timeStr) return "N/A";
+  const [hours, minutes] = timeStr.split(":");
+  const h = parseInt(hours, 10);
+  const ampm = h >= 12 ? "pm" : "am";
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
+
+const getStatusInfo = (status) => {
+    switch (status) {
+      case 'To Deliver and Bill':
+        return { label: 'Emergency', color: 'red' };
+      case 'To Deliver':
+        return { label: 'Priority', color: 'orange' };
+      case 'On Hold':
+        return { label: 'Standard', color: 'yellow' };
+      default:
+        return { label: status || 'N/A', color: 'gray' };
+    }
+  };
+  const { label, color } = getStatusInfo(salesOderStatus);
+
+
   // if (loading) {
   //   return <Loader isLoading={loading} />;
   // }
@@ -293,11 +357,11 @@ const decodeHtmlEntities = (text) => {
         <View style={styles.mainContainer}>
           <TopBar />
           <ScrollView style={styles.container} nestedScrollEnabled={true}>
+            
             <SalesOrderDropdown onSelect={handleSalesOrderSelect} />
             <CustomText
               style={{
                 fontSize: 16,
-                // fontWeight: "bold",
                 marginTop: 20,
                 color: Colors.blackColor,
               }}
@@ -330,23 +394,19 @@ const decodeHtmlEntities = (text) => {
                   <CustomText style={styles.wideCell}>
                     Delivery Period
                   </CustomText>
+                   <CustomText style={styles.wideCell}>
+                    Time
+                  </CustomText>
+                   <CustomText style={styles.wideCell}>
+                    Status
+                  </CustomText>
                 </View>
 
                 {/* Table Body */}
 
 {salesOrderItems.length > 0 ? (
   salesOrderItems.map((item, index) => {
-    const deliveryDate = new Date(item.delivery_date);
-    const formattedDate = deliveryDate.toISOString().split("T")[0];
-  const date =  new Date().toISOString().split("T")[0];
-    let circleColor = "gray"; 
-    if (formattedDate < date) {
-      circleColor = "green";
-    } else if (formattedDate > date) {
-      circleColor = "red";
-    }else if (formattedDate === date) {
-      circleColor = "yellow";
-    }
+  
     return (
       <View key={index} style={styles.tableRow}>
         <TouchableOpacity onPress={() => toggleItemSelection(item.idx)}>
@@ -358,7 +418,6 @@ const decodeHtmlEntities = (text) => {
         </TouchableOpacity>
         <CustomText style={styles.smallCell}>{item.idx}</CustomText>
         <View style={styles.verticalLine} />
-                  <View style={[styles.circle, { backgroundColor: circleColor }]} />
         <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
           {item.item_code || "N/A"}
         </CustomText>
@@ -393,7 +452,22 @@ const decodeHtmlEntities = (text) => {
           {item.uom || "N/A"}
         </CustomText>
         <View style={styles.verticalLine} />
-        <CustomText style={styles.wideCell}>{item.delivery_date || "N/A"}</CustomText>
+        <CustomText style={styles.wideCell}>
+  {item.delivery_date
+    ? new Date(item.delivery_date).toLocaleDateString('en-GB') 
+    : "N/A"}
+</CustomText>
+ <CustomText style={styles.wideCell}>
+  {formatTime(SalesOrderTime) || "N/A"}
+</CustomText>
+ <View style={styles.wideCell}>
+   <View style={styles.statusContainer}>
+    <View style={[styles.circle, { backgroundColor: color }]} />
+      <CustomText style={styles.statusText} numberOfLines={1} ellipsizeMode="tail">
+        {label || "N/A"}
+      </CustomText>
+      </View>
+</View>
       </View>
     );
   })
@@ -478,8 +552,12 @@ const decodeHtmlEntities = (text) => {
                       />
 
                       <View style={styles.verticalLine} />
+<CustomText style={styles.wideCell}>
+  {item.date
+    ? new Date(item.date).toLocaleDateString('en-GB')
+    : "N/A"}
+</CustomText>
 
-                      <Text style={styles.wideCell}>{item.date}</Text>
                     </View>
                   ))
                 ) : (
@@ -571,9 +649,12 @@ const decodeHtmlEntities = (text) => {
                         />
                         <View style={styles.verticalLine} />
                         <CustomText style={styles.wideCell}>
-                          {isEditMode
+                          {/* {isEditMode
                             ? (item.production_date?.split(" ")[0] ?? "")
-                            : (item.date ?? "")}
+                            : (item.date ?? "")} */}
+                             {isEditMode
+    ? (item.production_date ? formatDate(item.production_date.split(" ")[0]) : "")
+    : (item.date ? formatDate(item.date) : "")}
                         </CustomText>
                         <View style={styles.verticalLine} />
                         {isEditMode ? (
@@ -758,7 +839,20 @@ const styles = StyleSheet.create({
   borderRadius: 5,
   marginHorizontal: 5,
 },
-
+ statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 14,
+    color: '#333',
+  },
 });
 
 export default CreateProductionEntry;
