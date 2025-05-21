@@ -281,8 +281,9 @@ const handleDelete = (index) => {
   };
 
   const handleUpdate = async () => {
+
     const updatedData = updatedTableData.map((item) => ({
-      name: item.name || "item_" + Math.random().toString(36).substring(2, 10),
+      name: `${Math.random().toString(36).substring(2, 15)}`,
       quantity: isEditMode ? (item.quantity ?? item.amount ?? item.produced_quantity) : "",
       produced_nos: isEditMode ? (
   item.produced_quantity ?? item.produced_nos ?? item.amount ?? "N/A"
