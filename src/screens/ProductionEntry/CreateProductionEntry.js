@@ -37,11 +37,8 @@ const desiredFontSize = 20;
 const responsiveFontSize = desiredFontSize * (width / baseWidth);
 
 const CreateProductionEntry = ({ route }) => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const navigation = useNavigation();
-  const isFocused = useIsFocused();
-
+  const [loading, setLoading] = useState(true);
   const [buttonLoading, setButtonLoading] = useState(false);
   const [SelectedSalesOrder, setSelectedSalesOrder] = useState("");
   const [salesOrderItems, setSalesOrderItems] = useState([]);
@@ -52,6 +49,7 @@ const CreateProductionEntry = ({ route }) => {
   const [productIdData, setProductIdData] = useState(null);
   const [SalesOrderTime, setSalesOrderTime] = useState(null);
   const [salesOderStatus, setSalesOrderStatus] = useState(null);
+const [isDropdownDisabled, setIsDropdownDisabled] = useState(false);
 
   const ProductID = route?.params?.ProductID || null;
   const isEditMode = !!ProductID;
@@ -141,32 +139,73 @@ const CreateProductionEntry = ({ route }) => {
   const handleSendProduction = () => {
     const selectedData = salesOrderItems.filter((item) =>
       selectedItems.includes(item.idx)
-    );
+    );   
+    const hasInvalidSheet = selectedData.some(
+    (item) => parseFloat(item.no_of_sheet) <= 0
+  );
+
+  if (hasInvalidSheet) {
+    showToast("No. of Sheet must be greater than 0.", true); 
+    return;
+  }
     const enrichedData = selectedData.map((item) => ({
       ...item,
       qty: item.qty ?? 0,
       amount: "",
+      no_of_sheet:item.no_of_sheet ,
       date: new Date().toISOString().split("T")[0],
     }));
-
     setSubmittedItems(enrichedData);
-  };
+    setIsDropdownDisabled(true);};
 
-  const completedProduction = async () => {
-    const processedItems = submittedItems.map((item) => ({
+
+
+const completedProduction = async () => {
+  const processedItems = submittedItems.map((item) => {
+    const previousItem = salesOrderItems.find(i => i.idx === item.idx);
+    const previousProducedQty = parseFloat(previousItem?.produced_quantity || 0);
+    const enteredAmount = parseFloat(item.amount || 0);
+
+    const totalProducedQty = enteredAmount;
+    const noOfSheet = item.no_of_sheet - enteredAmount;
+    const qtyPerWeight = item.qty / enteredAmount;
+
+    return {
       ...item,
-      quantity: isEditMode ? (item.quantity ?? item.qty) : item.qty,
       produced_nos: isEditMode ? (item.produced_nos ?? item.amount ?? "") : "",
       production_date: new Date().toISOString().split("T")[0],
-    }));
+      quantity: item.qty * enteredAmount / item.no_of_sheet,
+      qty_per_weight:( item.qty * enteredAmount / item.no_of_sheet) /enteredAmount ,
+      produced_quantity: totalProducedQty,
+      no_of_sheet: noOfSheet.toFixed(2),
+    };
+  });
 
-    setUpdatedTableData((prev) => [...prev, ...processedItems]);
-    setReadonlyItems((prev) =>
-      Array.from(new Set([...prev, ...processedItems.map((item) => item.idx)]))
-    );
 
-    setSubmittedItems([]);
-  };
+  // Update salesOrderItems table
+  const updatedSalesOrderItems = salesOrderItems.map((item) => {
+    const matchingProcessed = processedItems.find((sub) => sub.idx === item.idx);
+    if (matchingProcessed) {
+      return {
+        ...item,
+        produced_quantity: matchingProcessed.produced_quantity,
+        no_of_sheet: matchingProcessed.no_of_sheet,
+        qty_per_weight: matchingProcessed.qty_per_weight,
+      };
+    }
+    return item;
+  });
+
+  setSalesOrderItems(updatedSalesOrderItems); 
+  setUpdatedTableData((prev) => [...prev, ...processedItems]);
+
+  setReadonlyItems((prev) =>
+    Array.from(new Set([...prev, ...processedItems.map((item) => item.idx)]))
+  );
+  setSubmittedItems([]);
+  return updatedSalesOrderItems
+};
+
 
 
 const handleDelete = (index) => {
@@ -181,7 +220,6 @@ const handleDelete = (index) => {
       showToast("Please select sales order !", true);
       return;
     }
-
     const payload = {
       select: SelectedSalesOrder,
       doctype: "Production Entry",
@@ -193,7 +231,9 @@ const handleDelete = (index) => {
         type: item.type,
         length: item.length,
         no_of_sheet: item.no_of_sheet,
+       qty_per_weight: item.qty_per_weight,
         qty: item.qty,
+         produced_quantity: item.produced_quantity,
         stock_uom: item.stock_uom,
         uom: item.uom,
         sqm: item.sqm,
@@ -206,17 +246,21 @@ const handleDelete = (index) => {
         to_produce_nos: item.qty,
         produced_nos: item.amount,
         date: item.date,
+        
       })),
       updated_sales_order: updatedTableData.map((item, index) => ({
-        quantity: item.qty,
-        produced_nos: item.amount,
-        date: item.date,
-        parentfield: "updated_sales_order",
-        parenttype: "Production Entry",
-        doctype: "Final Sales Order",
+    quantity: item.quantity, 
+    produced_nos: item.amount,
+    produced_quantity: item.produced_quantity,
+    qty_per_weight: item.qty_per_weight,
+    no_of_sheet: item.no_of_sheet,
+    date: item.date,
+    parentfield: "updated_sales_order",
+    parenttype: "Production Entry",
+    doctype: "Final Sales Order",
       })),
     };
-    // console.log("payload",payload);
+  // console.log(payload); 
 
     setButtonLoading(true);
     try {
@@ -239,13 +283,17 @@ const handleDelete = (index) => {
   const handleUpdate = async () => {
     const updatedData = updatedTableData.map((item) => ({
       name: item.name || "item_" + Math.random().toString(36).substring(2, 10),
-      quantity: isEditMode ? (item.quantity ?? item.qty) : item.qty,
-      produced_nos: isEditMode ? (item.produced_nos ?? item.amount ?? "") : "",
+      quantity: isEditMode ? (item.quantity ?? item.amount ?? item.produced_quantity) : "",
+      produced_nos: isEditMode ? (
+  item.produced_quantity ?? item.produced_nos ?? item.amount ?? "N/A"
+) : "",
       production_date: isEditMode
         ? item.production_date
         : new Date().toISOString().split("T")[0],
+  qty_per_weight:isEditMode ? (item.qty_per_weight ?? item.amount ?? "") : item.qty_per_weight ?? "",       
     }));
 
+    
     const payload = {
       name: ProductID,
       sales_order_item: salesOrderItems.map((item) => ({
@@ -259,7 +307,9 @@ const handleDelete = (index) => {
         description: item.description,
         type: item.type,
         length: item.length,
-        no_of_sheet: item.no_of_sheet,
+         no_of_sheet: item.no_of_sheet,
+       qty_per_weight: item.qty_per_weight ?? item.amount ?? "" ,
+        produced_quantity:item.produced_quantity ?? item.produced_nos ?? item.amount ?? "N/A",
         qty: item.qty,
         stock_uom: item.stock_uom,
         uom: item.uom,
@@ -269,11 +319,12 @@ const handleDelete = (index) => {
         __islocal: 1,
       })),
       production_table: [],
-      updated_sales_order: updatedData.map((item, index) => ({
-        name: item.name,
-        quantity: item.quantity,
-        produced_nos: item.produced_nos,
-        production_date: item.production_date,
+      updated_sales_order:  updatedData.map((item, index) => ({
+      name: item.name,
+      produced_nos: item.produced_nos,
+      quantity: item.quantity ,
+      qty_per_weight: item.qty_per_weight,
+      production_date: item.production_date,
         parentfield: "updated_sales_order",
         parenttype: "Production Entry",
         doctype: "Final Sales Order",
@@ -357,8 +408,13 @@ const getStatusInfo = (status) => {
         <View style={styles.mainContainer}>
           <TopBar />
           <ScrollView style={styles.container} nestedScrollEnabled={true}>
-            
-            <SalesOrderDropdown onSelect={handleSalesOrderSelect} />
+            {
+              !isDropdownDisabled && !isEditMode ?  <SalesOrderDropdown 
+            onSelect={handleSalesOrderSelect}
+            disabled={isDropdownDisabled}   
+/> : null
+            }
+           
             <CustomText
               style={{
                 fontSize: 16,
@@ -380,6 +436,10 @@ const getStatusInfo = (status) => {
                   <CustomText style={styles.wideCell}>Item Name</CustomText>
                   <View style={styles.verticalLine} />
                    <CustomText style={styles.wideCell}>Description</CustomText>
+                  <View style={styles.verticalLine} />
+                  <CustomText style={styles.wideCell}>Qty per weight</CustomText>
+                  <View style={styles.verticalLine} />
+                   <CustomText style={styles.wideCell}>Produced Quantity</CustomText>
                   <View style={styles.verticalLine} />
                    <CustomText style={styles.wideCell}>crimping</CustomText>
                   <View style={styles.verticalLine} />
@@ -432,6 +492,13 @@ const getStatusInfo = (status) => {
                   ) || "N/A"}
                   </CustomText>
         <View style={styles.verticalLine} />
+         <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
+           {item.qty_per_weight? (parseFloat(item.qty_per_weight).toFixed(3) || "N/A"): 0.000}
+        </CustomText>
+        <View style={styles.verticalLine} />
+         <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
+           {item.produced_quantity? parseFloat(item.produced_quantity).toFixed(3) : 0.000}</CustomText>
+
         <CustomText style={styles.wideCell} numberOfLines={1} ellipsizeMode="tail">
           {item.crimping_included || "N/A"}
         </CustomText>
@@ -501,13 +568,17 @@ const getStatusInfo = (status) => {
                 </CustomText>
                 <View style={styles.tableRowHeader}>
                   <CustomText style={styles.smallCell}>No</CustomText>
-                  <View style={styles.verticalLine} />
+                   <View style={styles.verticalLine} />
                   <CustomText style={styles.wideCell}>
-                    To Produce (Nos)
+                    No Of Sheet
                   </CustomText>
                   <View style={styles.verticalLine} />
                   <CustomText style={styles.wideCell}>
                     Produced (Nos)
+                  </CustomText>
+                   <View style={styles.verticalLine} />
+                  <CustomText style={styles.wideCell}>
+                    To Produce (Nos)
                   </CustomText>
                   <View style={styles.verticalLine} />
                   <CustomText style={styles.wideCell}>Date</CustomText>
@@ -515,16 +586,16 @@ const getStatusInfo = (status) => {
 
                 {submittedItems.length > 0 ? (
                   submittedItems.map((item, index) => (
+                    
                     <View key={index} style={styles.tableRow}>
                       <CustomText style={styles.smallCell}>
                         {item.idx}
                       </CustomText>
-                      <View style={styles.verticalLine} />
+                       <View style={styles.verticalLine} />
                       <CustomText style={[styles.wideCell, { padding: 4 }]}>
-                        {item.qty}
-                      </CustomText>
-                      <View style={styles.verticalLine} />
+                        { parseFloat(item.no_of_sheet).toFixed(3) || "N/A"}
 
+                      </CustomText>
                       <TextInput
                         style={[
                           styles.wideCell,
@@ -535,21 +606,25 @@ const getStatusInfo = (status) => {
                         onChangeText={(text) => {
                           const numericText = text.replace(/[^0-9]/g, "");
                           const value = parseInt(numericText || "0", 10);
-                          const maxQty = parseInt(item.qty, 10);
+                          const maxQty = parseInt(item.no_of_sheet, 10);
 
                           if (value > maxQty) {
                             showToast(
-                              `Amount cannot exceed Qty (${item.qty}).`,
+                              `Amount cannot exceed Qty (${item.no_of_sheet}).`,
                               true
                             );
                             return;
                           }
-
                           const updated = [...submittedItems];
                           updated[index].amount = numericText;
+
                           setSubmittedItems(updated);
                         }}
                       />
+                      <View style={styles.verticalLine} />
+                      <CustomText style={[styles.wideCell, { padding: 4 }]}>
+                        {item.qty}
+                      </CustomText>
 
                       <View style={styles.verticalLine} />
 <CustomText style={styles.wideCell}>
@@ -594,11 +669,15 @@ const getStatusInfo = (status) => {
                   <CustomText style={styles.smallCell}>No</CustomText>
                   <View style={styles.verticalLine} />
                   <CustomText style={styles.wideCell}>
-                    To Produce (Nos)
+                    Produced (Nos)
                   </CustomText>
                   <View style={styles.verticalLine} />
                   <CustomText style={styles.wideCell}>
-                    Produced (Nos)
+                    Quantity
+                  </CustomText>
+                  <View style={styles.verticalLine} />
+                  <CustomText style={styles.wideCell}>
+                    Qty Per weight
                   </CustomText>
                   <View style={styles.verticalLine} />
                   <CustomText style={styles.wideCell}>Date</CustomText>
@@ -619,11 +698,7 @@ const getStatusInfo = (status) => {
                         <CustomText style={styles.smallCell}>
                           {item.idx}
                         </CustomText>
-                        <View style={styles.verticalLine} />
-                        <CustomText style={[styles.wideCell, { padding: 4 }]}>
-                          {isEditMode ? (item.quantity ?? item.qty) : item.qty}
-                        </CustomText>
-                        <View style={styles.verticalLine} />
+                          <View style={styles.verticalLine} />
                         <TextInput
                           style={[
                             styles.wideCell,
@@ -648,10 +723,17 @@ const getStatusInfo = (status) => {
                           }}
                         />
                         <View style={styles.verticalLine} />
+                        <CustomText style={[styles.wideCell, { padding: 4 }]}>
+                          { parseFloat(item.quantity).toFixed(3) || "N/A"}
+                           {/* {isEditMode ? (item.quantity ?? item.qty) : item.qty}  */}
+                        </CustomText>
+                         <View style={styles.verticalLine} />
+                        <CustomText style={[styles.wideCell, { padding: 4 }]}>
+                            {parseFloat(item.qty_per_weight).toFixed(3) || "N/A"}
+                        </CustomText>
+                      
+                        <View style={styles.verticalLine} />
                         <CustomText style={styles.wideCell}>
-                          {/* {isEditMode
-                            ? (item.production_date?.split(" ")[0] ?? "")
-                            : (item.date ?? "")} */}
                              {isEditMode
     ? (item.production_date ? formatDate(item.production_date.split(" ")[0]) : "")
     : (item.date ? formatDate(item.date) : "")}

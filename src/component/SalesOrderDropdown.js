@@ -8,7 +8,7 @@ import Loader from './loader/appLoader';
 
 
 
-const SalesOrderDropdown = ({ onSelect }) => {
+const SalesOrderDropdown = ({ onSelect,disabled }) => {
   const [salesOrders, setSalesOrders] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -68,6 +68,7 @@ const formatTime = (timeStr) => {
           title="Sales Order"
           options={salesOrders}
           onSelect={onSelect}
+          disabled={disabled} 
         />
       )}
     </View>

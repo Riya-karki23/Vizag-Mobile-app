@@ -5,7 +5,7 @@ import { Colors } from "../constant/color";
 import CustomText from "./CustomText/customText";
 import { Strings } from "../constant/string_constant";
 
-const DropdownInput = ({ title, options, value, onSelect }) => {
+const DropdownInput = ({ title, options, value, onSelect, disabled }) => {
   const [selectedValue, setSelectedValue] = useState(null);
 
   const formattedOptions = (options ?? []).map((item) => {
@@ -31,7 +31,8 @@ const DropdownInput = ({ title, options, value, onSelect }) => {
     <View style={styles.container}>
       <CustomText style={styles.title}>{title}</CustomText>
       <Dropdown
-        style={styles.dropdown}
+        // style={styles.dropdown}
+          style={[styles.dropdown, disabled && styles.disabledDropdown]}
         data={formattedOptions || []}
         labelField="label"
         valueField="value"
@@ -40,20 +41,25 @@ const DropdownInput = ({ title, options, value, onSelect }) => {
           fontFamily: Strings.fontFamilyConstant,
         }}
         placeholder={`Select ${title}`}
-        search
+        search={!disabled}
         searchPlaceholder="Search..."
         inputSearchStyle={styles.searchInput}
         value={selectedValue || value}
         iconColor={Colors.blackColor}
         iconStyle={{ width: 30, height: 30 }}
         containerStyle={{ maxHeight: 200 }}
+        disabled={disabled} 
         selectedTextStyle={{
           color: Colors.blackColor,
           fontSize: 16,
         }}
         onChange={(item) => {
-          setSelectedValue(item.value);
-          onSelect(item.value);
+           if (!disabled) {
+      setSelectedValue(item.value);
+      onSelect(item.value);
+    }
+          // setSelectedValue(item.value);
+          // onSelect(item.value);
         }}
         renderItem={(item, selected) => (
           <View
@@ -101,6 +107,11 @@ const styles = StyleSheet.create({
     fontFamily: Strings.fontFamilyConstant,
     color: Colors.blackColor,
   },
+  disabledDropdown: {
+  backgroundColor: "#f0f0f0",
+  opacity: 0.6,
+},
+
 });
 
 export default DropdownInput;
