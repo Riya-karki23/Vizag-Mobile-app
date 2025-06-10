@@ -149,9 +149,9 @@ const AttendanceScreen = ({ route }) => {
               Employee Name
             </CustomText>
             <CustomText style={styles.tableHeaderText}>Time</CustomText>
-            <CustomText style={styles.tableHeaderText}>
+            {/* <CustomText style={styles.tableHeaderText}>
               Shift Timings
-            </CustomText>
+            </CustomText> */}
             <CustomText style={styles.tableHeaderText}>
               Total Work Hours
             </CustomText>
@@ -182,7 +182,7 @@ const AttendanceScreen = ({ route }) => {
                   <CustomText style={styles.tableCell}>
                     {item.time ? formatToIST(item.time) : "NA"}
                   </CustomText>
-                  <CustomText style={styles.tableCell}>
+                  {/* <CustomText style={styles.tableCell}>
                     {shiftTypeList?.length > 0
                       ? (() => {
                           const matchedShift = shiftTypeList.find(
@@ -204,7 +204,7 @@ const AttendanceScreen = ({ route }) => {
                           }
                         })()
                       : "NA"}
-                  </CustomText>
+                  </CustomText> */}
                   <CustomText style={styles.tableCell}>
                     {employeeCheckins
                       ? getTotalWorkHoursForDate(

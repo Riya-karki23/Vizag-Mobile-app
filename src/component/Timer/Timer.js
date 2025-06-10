@@ -50,7 +50,7 @@ const Timer = ({ punchInTime, punchOutTime }) => {
             // ["time", ">=", `${currentDate} 00:00:00`],
             // ["time", "<=", `${currentDate} 23:59:59`],
           ])
-        )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "custom_work_mode", "night_shift"]))}&order_by=${encodeURIComponent("time desc")}`
+        )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
       );
       return response;
     }
@@ -72,7 +72,7 @@ const Timer = ({ punchInTime, punchOutTime }) => {
           log.log_type === "OUT" &&
           new Date(log.time) > new Date(latestCheckIn.time)
       );
-      if (!hasCheckOut && latestCheckIn?.night_shift === 1) {
+      if (!hasCheckOut) {
         const today = new Date();
         const startOfDay = new Date(today.setHours(0, 0, 0, 0)).getTime();
         const startOfTomorrow = new Date(today);
@@ -244,7 +244,7 @@ const Timer = ({ punchInTime, punchOutTime }) => {
         employee: employeeResponse?.data?.data[0].name,
         log_type: "OUT",
         custom_hours: time,
-        custom_work_mode: logTypeIn.data.data[0].custom_work_mode,
+        work_mode: logTypeIn.data.data[0].work_mode,
         latitude: latitude,
         longitude: longitude,
       })

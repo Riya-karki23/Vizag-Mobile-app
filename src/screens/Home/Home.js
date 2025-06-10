@@ -117,7 +117,7 @@ const Home = () => {
   };
   const scheduleLogoutBeforeMidnight = async () => {
     const baseURL = await getItemFromStorage(Strings.baseURL);
-    if (baseURL !== "http://akgni.in") {
+    if (baseURL !== "http://vizagsteel.multark.com") {
       await checkPunchedIn();
       const now = new Date();
       const logoutTime = new Date();
@@ -133,7 +133,7 @@ const Home = () => {
   };
   const logoutUser = async () => {
     const baseURL = await getItemFromStorage(Strings.baseURL);
-    if (baseURL !== "http://akgni.in") {
+    if (baseURL !== "http://vizagsteel.multark.com") {
       if (buttonText === "CHECK-OUT") {
         // await handlePunchOut();
         await checkPunchedIn();
@@ -157,7 +157,7 @@ const Home = () => {
           // ["time", ">=", `${currentDate} 00:00:00`],
           // ["time", "<=", `${currentDate} 23:59:59`],
         ])
-      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "custom_work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
+      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
     );
     return response;
   }
@@ -195,7 +195,7 @@ const Home = () => {
       );
       const logTypeIn = await fetchLogType("IN");
       const totalHours = await getItemFromStorage(Strings.totalHours);
-      if (logTypeIn.data.data[0].custom_work_mode == "Office") {
+      if (logTypeIn.data.data[0].work_mode == "Office") {
         if (distance <= geoFenceRadius) {
           const response = await request(
             "POST",
@@ -205,7 +205,7 @@ const Home = () => {
               log_type: "OUT",
               time: getCurrentDateTime(),
               custom_hours: totalHours,
-              custom_work_mode: logTypeIn.data.data[0].custom_work_mode,
+              work_mode: logTypeIn.data.data[0].work_mode,
               latitude: latitude,
               longitude: longitude,
             })
@@ -235,7 +235,7 @@ const Home = () => {
             employee: employeeId,
             log_type: "OUT",
             custom_hours: totalHours,
-            custom_work_mode: logTypeIn.data.data[0].custom_work_mode,
+            work_mode: logTypeIn.data.data[0].work_mode,
             latitude: latitude,
             longitude: longitude,
           })
@@ -421,7 +421,7 @@ const Home = () => {
             // ["time", ">=", `${currentDate} 00:00:00`],
             // ["time", "<=", `${currentDate} 23:59:59`],
           ])
-        )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "custom_work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
+        )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
       );
       if (logTypeIn.data?.data?.length > 0) {
         const punchInTime = getIndianTimeFromDateString(
@@ -430,7 +430,7 @@ const Home = () => {
         const pucnhInDate = getIndianDateFromDateString(
           logTypeIn.data.data[0].time
         );
-        await setWorkMode(logTypeIn.data.data[0].custom_work_mode);
+        await setWorkMode(logTypeIn.data.data[0].work_mode);
         await setPunchInTime(punchInTime);
         await setPunchInDate(pucnhInDate);
       } else {
@@ -501,7 +501,7 @@ const Home = () => {
   };
 
   const handlePunchInRedirect = async () => {
-    if (buttonText == "CHECK-IN") {
+    if (buttonText == "CHECK-IN" || buttonText == "CHECK-OUT") {
       navigation.navigate("ShowCamera");
     } else {
       navigation.navigate("MAP");
@@ -632,7 +632,9 @@ const Home = () => {
                     marginLeft: 20,
                     marginRight: 20,
                   }}
-                  onPress={() => navigation.navigate("MAP")}
+                  // onPress={() => navigation.navigate("MAP")}
+                    onPress={handlePunchInRedirect}
+
                 >
                   <LinearGradient
                     colors={[Colors.orangeColor, Colors.redColor]}

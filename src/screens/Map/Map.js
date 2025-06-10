@@ -298,7 +298,7 @@ const MAP = ({ navigation, route }) => {
           // ["time", ">=", `${currentDate} 00:00:00`],
           // ["time", "<=", `${currentDate} 23:59:59`],
         ])
-      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "custom_work_mode", "night_shift"]))}&order_by=${encodeURIComponent("time desc")}`
+      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode", "night_shift"]))}&order_by=${encodeURIComponent("time desc")}`
     );
     return response;
   }
@@ -336,10 +336,10 @@ const MAP = ({ navigation, route }) => {
       return;
     }
 
-    if (employeeShift === null) {
-      showToast("Please Select Your Shift");
-      return;
-    }
+    // if (employeeShift === null) {
+    //   showToast("Please Select Your Shift");
+    //   return;
+    // }
 
     setLoading(true);
 
@@ -368,10 +368,10 @@ const MAP = ({ navigation, route }) => {
               employee: employeeId,
               log_type: "IN",
               time: getCurrentDateTime(),
-              night_shift: isNightShift === true ? 1 : 0,
-              shift: employeeShift,
-              // custom_picture: imageUrl,
-              custom_work_mode:
+              // night_shift: isNightShift === true ? 1 : 0,
+              // shift: employeeShift,
+              custom_picture: imageUrl,
+              work_mode:
                 Platform.OS === "ios" ? selectedLocation : workFrom,
               latitude: latitude,
               longitude: longitude,
@@ -401,10 +401,10 @@ const MAP = ({ navigation, route }) => {
             employee: employeeId,
             log_type: "IN",
             time: getCurrentDateTime(),
-            shift: employeeShift,
-            night_shift: isNightShift === true ? 1 : 0,
-            // custom_picture: imageUrl,
-            custom_work_mode:
+            // shift: employeeShift,
+            // night_shift: isNightShift === true ? 1 : 0,
+            custom_picture: imageUrl,
+            work_mode:
               Platform.OS === "ios" ? selectedLocation : workFrom,
             latitude: latitude,
             longitude: longitude,
@@ -436,11 +436,11 @@ const MAP = ({ navigation, route }) => {
 
   const handlePunchOut = async () => {
     setLoading(true);
-    if (employeeShift === null) {
-      showToast("Please Select Your Shift");
-      setLoading(false);
-      return;
-    }
+    // if (employeeShift === null) {
+    //   showToast("Please Select Your Shift");
+    //   setLoading(false);
+    //   return;
+    // }
     try {
       const locationData = await getCurrentLocation(permissionGranted);
       if (!locationData) {
@@ -459,14 +459,14 @@ const MAP = ({ navigation, route }) => {
       const logTypeIn = await fetchLogType("IN");
       const currentDate = new Date();
       const formattedDate = currentDate.toISOString().split("T")[0];
-      const attendance_date =
-        logTypeIn?.data?.data[0]?.night_shift === 1
-          ? new Date(currentDate.setDate(currentDate.getDate() - 1))
-              .toISOString()
-              .split("T")[0]
-          : formattedDate;
+      // const attendance_date =
+      //   logTypeIn?.data?.data[0]?.night_shift === 1
+      //     ? new Date(currentDate.setDate(currentDate.getDate() - 1))
+      //         .toISOString()
+      //         .split("T")[0]
+      //     : formattedDate;
       const totalHours = await getItemFromStorage(Strings.totalHours);
-      if (logTypeIn.data.data[0].custom_work_mode == "Office") {
+      if (logTypeIn.data.data[0].work_mode == "Office") {
         if (distance <= geofenceRadius) {
           const response = await request(
             "POST",
@@ -474,11 +474,12 @@ const MAP = ({ navigation, route }) => {
             JSON.stringify({
               employee: employeeId,
               log_type: "OUT",
-              night_shift: logTypeIn?.data?.data[0]?.night_shift === 1,
+              // night_shift: logTypeIn?.data?.data[0]?.night_shift === 1,
               time: getCurrentDateTime(),
-              shift: employeeShift,
+              // shift: employeeShift,
+               custom_picture: imageUrl,
               custom_hours: totalHours,
-              custom_work_mode: logTypeIn.data.data[0].custom_work_mode,
+              work_mode: logTypeIn.data.data[0].work_mode,
               latitude: latitude,
               longitude: longitude,
             })
@@ -513,10 +514,10 @@ const MAP = ({ navigation, route }) => {
           JSON.stringify({
             employee: employeeId,
             log_type: "OUT",
-            shift: employeeShift,
-            night_shift: logTypeIn?.data?.data[0]?.night_shift === 1,
+            // shift: employeeShift,
+            // night_shift: logTypeIn?.data?.data[0]?.night_shift === 1,
             custom_hours: totalHours,
-            custom_work_mode: logTypeIn.data.data[0].custom_work_mode,
+            work_mode: logTypeIn.data.data[0].work_mode,
             latitude: latitude,
             time: getCurrentDateTime(),
             longitude: longitude,
@@ -622,7 +623,7 @@ const MAP = ({ navigation, route }) => {
                   color={Colors.orangeColor}
                 />
               </TouchableOpacity>
-              <TouchableOpacity
+                 {/* <TouchableOpacity
                 onPress={() => {
                   LayoutAnimation.configureNext(
                     LayoutAnimation.Presets.easeInEaseOut
@@ -639,7 +640,7 @@ const MAP = ({ navigation, route }) => {
                   selectedValue={employeeShift}
                   editable={false}
                 />
-              </TouchableOpacity>
+           </TouchableOpacity> */}
 
               {shiftDropDownVisible && (
                 <View
@@ -678,7 +679,7 @@ const MAP = ({ navigation, route }) => {
               )}
               {isPunchedIn && (
                 <>
-                  <View style={styles.noteContainer}>
+                  {/* <View style={styles.noteContainer}>
                     <Icon
                       name="information-circle-outline"
                       size={25}
@@ -695,12 +696,12 @@ const MAP = ({ navigation, route }) => {
                       </CustomText>{" "}
                       Please note.
                     </CustomText>
-                  </View>
+                  </View> */}
                 </>
               )}
               {isPunchedIn ? (
                 <>
-                  <View
+                  {/* <View
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
@@ -732,34 +733,35 @@ const MAP = ({ navigation, route }) => {
                         Are You Ready to End Your Workday?
                       </CustomText>
                     </TouchableOpacity>
-                  </View>
+                  </View> */}
 
                   <TouchableOpacity
-                    onPress={() => {
-                      if (checked) {
-                        Alert.alert(
-                          "Confirm Workday Completion",
-                          "Are you sure you want to end your workday? Once confirmed, your attendance will be marked based on your working hours.",
-                          [
-                            {
-                              text: "No, Keep Working",
-                              style: "cancel",
-                              onPress: () => {
-                                setChecked(false);
-                              },
-                            },
-                            {
-                              text: "Yes, End My Workday",
-                              onPress: () => {
-                                handlePunchOut();
-                              },
-                            },
-                          ]
-                        );
-                      } else {
-                        handlePunchOut();
-                      }
-                    }}
+                    // onPress={() => {
+                    //   if (checked) {
+                    //     Alert.alert(
+                    //       "Confirm Workday Completion",
+                    //       "Are you sure you want to end your workday? Once confirmed, your attendance will be marked based on your working hours.",
+                    //       [
+                    //         {
+                    //           text: "No, Keep Working",
+                    //           style: "cancel",
+                    //           onPress: () => {
+                    //             setChecked(false);
+                    //           },
+                    //         },
+                    //         {
+                    //           text: "Yes, End My Workday",
+                    //           onPress: () => {
+                    //             handlePunchOut();
+                    //           },
+                    //         },
+                    //       ]
+                    //     );
+                    //   } else {
+                    //     handlePunchOut();
+                    //   }
+                    // }}
+                     onPress={handlePunchOut}
                   >
                     <LinearGradient
                       colors={[Colors.orangeColor, Colors.redColor]}
