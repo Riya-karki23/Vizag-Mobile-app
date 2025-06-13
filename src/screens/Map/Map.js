@@ -148,9 +148,13 @@ const MAP = ({ navigation, route }) => {
                     `/api/resource/Employee?filters=[["user_id", "=", "${storedUserName}"]]&fields=["company","name","default_shift","department"]`
                   );
 
-                  const employee = employeeResponse.data.data[0];
+                  const employee = await employeeResponse.data.data[0];
+                  console.log(
+                    "Employee Response:",employee.department
+                  );
                   if (employee) {
                     if (employee.department === "Sales - V") {
+
                       const newOptions = options
                         .filter(
                           (option) =>
