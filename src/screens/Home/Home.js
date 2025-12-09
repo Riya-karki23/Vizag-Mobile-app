@@ -752,6 +752,39 @@ const Home = () => {
                   )}
                 </View>
 
+
+
+<View
+                  style={[
+                    // styles.favStatus,
+                    { width: !isManuFactuer ? "50%" : null },
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.favSubCard,
+                      { width: "45%", marginBottom: 20 },
+                    ]}
+                    onPress={() => navigation.navigate("Sales Collection")}
+                  >
+                    <View style={styles.favStatusText}>
+                      <CustomText style={styles.punchText}>
+                        Sales Officer Collection
+                      </CustomText>
+                    </View>
+                    <View style={styles.favStatusIcon}>
+                      <IconMaterial
+                        name="wallet"
+                        size={45}
+                        color={Colors.orangeColor}
+                      />
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+
+
+
                 {/* <View style={styles.favStatus}>
                   <TouchableOpacity
                     style={styles.favSubCard}
@@ -827,7 +860,7 @@ const Home = () => {
                         />
                       </View>
                     </TouchableOpacity>
-                  </View> */}
+                  </View> 
                 {/* )} */}
               </View>
             </ScrollView>

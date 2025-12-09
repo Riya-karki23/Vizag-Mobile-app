@@ -24,7 +24,6 @@ import HolidayList from "./screens/HolidayList/holidayList";
 import EmployeeOnBoarding from "./screens/Employee Onboarding/employeeOnboarding";
 import RequirementsScreens from "./screens/Requirements/requirement";
 import TaskScreen from "./screens/Task/task";
-import SelectOfficeLocation from "./screens/SelectLocation/selectLocation";
 import ShowCamera from "./screens/CameraView/show_camera";
 import Icon from "react-native-vector-icons/Feather";
 import { Colors } from "./constant/color";
@@ -40,7 +39,7 @@ import requestUserPermission, {
   displayNotification,
   scheduleNotification,
 } from "./api/requestPushNotificationPermission/requestPushNotificationPermission";
-import { getApp } from "@react-native-firebase/app"; // ✅ Required for modular API
+import { getApp } from "@react-native-firebase/app";
 import {
   getMessaging,
   onMessage,
@@ -52,6 +51,7 @@ import SalarySlipFilter from "./screens/SalarySlip/SalarySlipFilter";
 import AttendanceFilter from "./screens/Attendance/AttendanceFilter";
 import ProductionEntryList from "./screens/ProductionEntry/ProductionEntryList";
 import CreateProductionEntry from "./screens/ProductionEntry/CreateProductionEntry";
+import SalesOfficerCollectionList from "./screens/SalesCollection/SalesOfficerCollectionList";
 const Stack = createNativeStackNavigator();
 
 const App = () => {
@@ -177,6 +177,16 @@ const App = () => {
                 component={SalarySlipScreen}
                 options={{ headerShown: false }}
               />
+
+
+              <Stack.Screen
+                name="Sales Collection"
+                component={SalesOfficerCollectionList}
+                options={{ headerShown: false }}
+              />
+
+
+              
               <Stack.Screen
                 name="ProfileScreen"
                 component={ProfileSreen}
@@ -212,11 +222,7 @@ const App = () => {
                 component={TaskScreen}
                 options={{ headerShown: false }}
               />
-              <Stack.Screen
-                name="SelectOfficeLocation"
-                component={SelectOfficeLocation}
-                options={{ headerShown: false }}
-              />
+             
               <Stack.Screen
                 name="ShowCamera"
                 component={ShowCamera}

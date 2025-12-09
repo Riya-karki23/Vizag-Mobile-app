@@ -145,6 +145,7 @@ const LoginForm = () => {
 
   const handleSubmit = async () => {
     setLoading(true);
+    console.log("selectedCompany>>>>>>>",selectedCompany)
     if (!selectedCompany) {
       showToast("Please enter a valid URL");
       setLoading(false);

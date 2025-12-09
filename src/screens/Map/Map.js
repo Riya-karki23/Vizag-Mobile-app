@@ -463,12 +463,12 @@ const MAP = ({ navigation, route }) => {
       const logTypeIn = await fetchLogType("IN");
       const currentDate = new Date();
       const formattedDate = currentDate.toISOString().split("T")[0];
-      // const attendance_date =
-      //   logTypeIn?.data?.data[0]?.night_shift === 1
-      //     ? new Date(currentDate.setDate(currentDate.getDate() - 1))
-      //         .toISOString()
-      //         .split("T")[0]
-      //     : formattedDate;
+      const attendance_date =
+        logTypeIn?.data?.data[0] === 1
+          ? new Date(currentDate.setDate(currentDate.getDate() - 1))
+              .toISOString()
+              .split("T")[0]
+          : formattedDate;
       const totalHours = await getItemFromStorage(Strings.totalHours);
       if (logTypeIn.data.data[0].work_mode == "Office") {
         if (distance <= geofenceRadius) {
