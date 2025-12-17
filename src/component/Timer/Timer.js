@@ -17,6 +17,8 @@ import { showToast } from "../../constant/toast";
 import { getCurrentLocation } from "../../api/requestLocationPermission/requestLocationPermission";
 
 const Timer = ({ punchInTime, punchOutTime }) => {
+  const [workingHours, setWorkingHours] = useState("00:00");
+
   const [elapsedTime, setElapsedTime] = useState(0);
   const [loading, setloading] = useState(false);
   const [isNightShift, setIsNightShift] = useState(false);
@@ -40,12 +42,21 @@ const Timer = ({ punchInTime, punchOutTime }) => {
         "GET",
         `/api/resource/Employee?filters=[["user_id", "=", "${userName}"]]&fields=["company","name"]`
       );
+     
+      const employeeData = employeeResponse?.data?.data?.[0];
+if (!employeeData) {
+  showToast("Employee not found");
+  return;
+}
+
+
+
       const currentDate = new Date().toISOString().split("T")[0];
       const response = await request(
         "GET",
         `/api/resource/Employee Checkin?filters=${encodeURIComponent(
           JSON.stringify([
-            ["employee", "=", employeeResponse.data.data[0].name],
+            ["employee", "=", employeeData.name],
             ["log_type", "=", logType],
             // ["time", ">=", `${currentDate} 00:00:00`],
             // ["time", "<=", `${currentDate} 23:59:59`],
@@ -64,9 +75,22 @@ const Timer = ({ punchInTime, punchOutTime }) => {
         ...logTypeIn.data.data,
         ...logTypeOut.data.data,
       ].sort((a, b) => new Date(a.time) - new Date(b.time));
-      const latestCheckIn = [...logTypeIn.data.data].sort(
-        (a, b) => new Date(b.time) - new Date(a.time)
-      )[0];
+      // const latestCheckIn = [...logTypeIn.data.data].sort(
+      //   (a, b) => new Date(b.time) - new Date(a.time)
+      // )[0];
+
+      const latestCheckIn =
+  logTypeIn.data?.data?.length > 0
+    ? [...logTypeIn.data.data].sort((a, b) => new Date(b.time) - new Date(a.time))[0]
+    : null;
+
+if (!latestCheckIn) {
+  setFormattedStartTime("00:00");
+  setloading(false);
+  return;
+}
+
+
       const hasCheckOut = combinedLogs.some(
         (log) =>
           log.log_type === "OUT" &&
@@ -109,7 +133,8 @@ const Timer = ({ punchInTime, punchOutTime }) => {
           checkOutTime.length > 0
             ? new Date(checkOutTime[0].time).getTime()
             : null;
-        let inTime = new Date(checkInTime[0].time).getTime();
+        let inTime = checkInTime[0] ? new Date(checkInTime[0].time).getTime() : new Date().getTime();
+
 
         if (lastCheckOutTime !== null) {
           const checkOutDate = new Date(lastCheckOutTime);
@@ -198,6 +223,7 @@ const Timer = ({ punchInTime, punchOutTime }) => {
       .toString()
       .padStart(2, "0")}`;
   };
+  
   const timeStringToMilliseconds = (timeString) => {
     const [hours, minutes, seconds] = timeString.split(":").map(Number);
     return (hours * 3600 + minutes * 60) * 1000;
@@ -237,6 +263,9 @@ const Timer = ({ punchInTime, punchOutTime }) => {
       `/api/resource/Employee?filters=[["user_id", "=", "${userName}"]]&fields=["company","name"]`
     );
 
+    const inLog = logTypeIn.data?.data?.[0];
+
+
     const response = await request(
       "POST",
       `/api/resource/Employee Checkin`,
@@ -244,10 +273,12 @@ const Timer = ({ punchInTime, punchOutTime }) => {
         employee: employeeResponse?.data?.data[0].name,
         log_type: "OUT",
         custom_hours: time,
-        work_mode: logTypeIn.data.data[0].work_mode,
+         work_mode: inLog?.work_mode || "", // safe access
         latitude: latitude,
         longitude: longitude,
       })
+
+      
     );
     if (response.statusCode == 200) {
       await markAttendance({
@@ -304,9 +335,9 @@ const Timer = ({ punchInTime, punchOutTime }) => {
       </CustomText>
       {!loading && (
         <CustomText style={styles.timerText}>
-          {addFormattedStartTimeAndElapsed(formattedStartTime, elapsedTime)}{" "}
-          {"hr/min"}
-        </CustomText>
+  {workingHours} hr/min
+</CustomText>
+
       )}
     </View>
   );

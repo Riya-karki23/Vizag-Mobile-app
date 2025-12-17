@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect , useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   Image,
   Platform,
 } from "react-native";
+
 import { handleErrorResponse, request } from "../../api/auth/auth";
 import Icon from "react-native-vector-icons/Ionicons";
 import IconMaterial from "react-native-vector-icons/Fontisto";
@@ -41,7 +42,8 @@ import { getCurrentLocation } from "../../api/requestLocationPermission/requestL
 import { OneSignal } from "react-native-onesignal";
 import { getCurrentDateTime } from "../Map/Map";
 import axios from "axios";
-let logoutTimer = null;
+const logoutTimer = null;
+
 
 
 const Home = () => {
@@ -61,11 +63,30 @@ const Home = () => {
   const [companyName, setcompanyName] = useState("");
   const [isManuFactuer, setIsManuFacturer] = useState(false);
   const isFocused = useIsFocused();
-  useEffect(() => {
-    fetchUserData();
-    scheduleLogoutBeforeMidnight();
-    checkSubcription();
-  }, []);
+  // useEffect(() => {
+  //   fetchUserData();
+  //   scheduleLogoutBeforeMidnight();
+  //   checkSubcription();
+  // }, []);
+
+
+
+// Step 2a: Run initial fetch and subscription check
+useEffect(() => {
+  const init = async () => {
+    await fetchUserData();
+    await checkSubcription();
+  };
+  init();
+}, []);
+
+// Step 2b: Run employee-dependent tasks after employeeId is set
+useEffect(() => {
+  if (employeeId) {
+    checkPunchedIn(); // safe now
+    scheduleLogoutBeforeMidnight(); // safe now
+  }
+}, [employeeId]);
 
 
   useEffect(() => {
@@ -130,9 +151,9 @@ const Home = () => {
   const scheduleLogoutBeforeMidnight = async () => {
     const baseURL = await getItemFromStorage(Strings.baseURL);
     if (baseURL !== "http://vizagsteel.multark.com") {
-      if (employeeId) {
-  await checkPunchedIn();
-}
+//       if (employeeId) {
+//   await checkPunchedIn();
+// }
 
       const now = new Date();
       const logoutTime = new Date();
@@ -141,9 +162,15 @@ const Home = () => {
       if (timeUntilLogout < 0) {
         timeUntilLogout += 24 * 60 * 60 * 1000;
       }
-      logoutTimer = setTimeout(() => {
-  logoutUser();
-}, timeUntilLogout);
+//       logoutTimer = setTimeout(() => {
+//   logoutUser();
+// }, timeUntilLogout);
+
+if (logoutTimer) {
+  clearTimeout(logoutTimer);
+  logoutTimer = null;
+}
+
 
     }
   };
@@ -319,14 +346,24 @@ await setItemToStorage(Strings.isLoggedIn, "false");
   };
   const fetchUserData = async () => {
     try {
-      const baseURL = await getItemFromStorage(Strings.baseURL);
-      setBaseUrl(baseURL);
-      const userName = await getItemFromStorage(Strings.userName);
-      const session = await getItemFromStorage(Strings.userCookie);
-      const userResponse = await request(
-        "GET",
-        `/api/resource/User/${userName}`
-      );
+    const session = await getItemFromStorage(Strings.userCookie);
+
+if (!session || isCookieExpired(session)) {
+  showToast("Session expired. Please log in again.");
+  await setItemToStorage(Strings.userCookie, "");
+  await setItemToStorage(Strings.isLoggedIn, "false");
+  navigation.dispatch(
+    CommonActions.reset({ index: 0, routes: [{ name: "Login" }] })
+  );
+  return; // Stop further execution if session is invalid
+}
+
+const baseURL = await getItemFromStorage(Strings.baseURL);
+setBaseUrl(baseURL);
+
+const userName = await getItemFromStorage(Strings.userName);
+const userResponse = await request("GET", `/api/resource/User/${userName}`);
+
 
       if (!userResponse || isCookieExpired(session)) {
         showToast("Session is expired. Please log in again.");
@@ -429,99 +466,185 @@ await setItemToStorage(Strings.isLoggedIn, "false");
 }, [employeeId, isFocused]);
 
 
-  const checkPunchedIn = async () => {
-const isLoggedIn = await getItemFromStorage(Strings.isLoggedIn);
+//   const checkPunchedIn = async () => {
+// const isLoggedIn = await getItemFromStorage(Strings.isLoggedIn);
+//   if (isLoggedIn !== "true") return;
+
+//     const currentDate = new Date().toISOString().split("T")[0];
+//     try {
+//       const logTypeIn = await request(
+//         "GET",
+//         `/api/resource/Employee Checkin?filters=${encodeURIComponent(
+//           JSON.stringify([
+//             ["employee", "=", employeeId],
+//             ["log_type", "=", "IN"],
+//             // ["time", ">=", `${currentDate} 00:00:00`],
+//             // ["time", "<=", `${currentDate} 23:59:59`],
+//           ])
+//         )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
+//       );
+//       if (logTypeIn.data?.data?.length > 0) {
+//         const punchInTime = getIndianTimeFromDateString(
+//           logTypeIn.data.data[0].time
+//         );
+//         const pucnhInDate = getIndianDateFromDateString(
+//           logTypeIn.data.data[0].time
+//         );
+//         await setWorkMode(logTypeIn.data.data[0].work_mode);
+//         await setPunchInTime(punchInTime);
+//         await setPunchInDate(pucnhInDate);
+//       } else {
+//         await setPunchInTime("- -");
+//         await setPunchInDate("- -");
+//       }
+//       const logTypeOut = await request(
+//         "GET",
+//         `/api/resource/Employee Checkin?filters=${encodeURIComponent(
+//           JSON.stringify([
+//             ["employee", "=", employeeId],
+//             ["log_type", "=", "OUT"],
+//             // ["time", ">=", `${currentDate} 00:00:00`],
+//             // ["time", "<=", `${currentDate} 23:59:59`],
+//           ])
+//         )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time"]))}&order_by=${encodeURIComponent("time desc")}`
+//       );
+//       if (logTypeOut.data?.data?.length > 0) {
+//         const punchOutTime = getIndianTimeFromDateString(
+//           logTypeOut.data.data[0].time
+//         );
+
+//         const punchInTime = getIndianTimeFromDateString(
+//           logTypeIn.data.data[0].time
+//         );
+//         const pucnhOutDate = getIndianDateFromDateString(
+//           logTypeOut.data.data[0].time
+//         );
+//         if (
+//           new Date(logTypeOut.data.data[0].time) >
+//           new Date(logTypeIn.data.data[0].time)
+//         ) {
+//           await setPunchOutTime(punchOutTime);
+//           await setPunchOutDate(pucnhOutDate);
+//         } else {
+//           await setPunchOutTime("- -");
+//           await setPunchOutDate("- -");
+//         }
+//         const combinedLogs = [
+//           ...logTypeIn.data.data,
+//           ...logTypeOut.data.data,
+//         ].sort((a, b) => new Date(b.time) - new Date(a.time));
+//         if (combinedLogs.length > 0) {
+//           const latestLog = combinedLogs[0];
+//           if (latestLog.log_type === "IN") {
+//             setbuttonText("CHECK-OUT");
+//             startTimer();
+//           } else if (latestLog.log_type === "OUT") {
+//             setbuttonText("CHECK-IN");
+//             stopTimer();
+//           }
+//         } else {
+//           setbuttonText("CHECK-IN");
+//           stopTimer();
+//         }
+//       } else {
+//         if (punchOutTime === "- -" && punchInTime === "- -") {
+//           setbuttonText("CHECK-IN");
+//           stopTimer();
+//         } else {
+//           setbuttonText("CHECK-OUT");
+//           startTimer();
+//         }
+//       }
+//     } catch (error) {
+//       logError("Error fetching check-in data:", error);
+//     }
+//   };
+
+
+const checkPunchedIn = async () => {
+  const isLoggedIn = await getItemFromStorage(Strings.isLoggedIn);
   if (isLoggedIn !== "true") return;
 
-    const currentDate = new Date().toISOString().split("T")[0];
-    try {
-      const logTypeIn = await request(
-        "GET",
-        `/api/resource/Employee Checkin?filters=${encodeURIComponent(
-          JSON.stringify([
-            ["employee", "=", employeeId],
-            ["log_type", "=", "IN"],
-            // ["time", ">=", `${currentDate} 00:00:00`],
-            // ["time", "<=", `${currentDate} 23:59:59`],
-          ])
-        )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
-      );
-      if (logTypeIn.data?.data?.length > 0) {
-        const punchInTime = getIndianTimeFromDateString(
-          logTypeIn.data.data[0].time
-        );
-        const pucnhInDate = getIndianDateFromDateString(
-          logTypeIn.data.data[0].time
-        );
-        await setWorkMode(logTypeIn.data.data[0].work_mode);
-        await setPunchInTime(punchInTime);
-        await setPunchInDate(pucnhInDate);
-      } else {
-        await setPunchInTime("- -");
-        await setPunchInDate("- -");
-      }
-      const logTypeOut = await request(
-        "GET",
-        `/api/resource/Employee Checkin?filters=${encodeURIComponent(
-          JSON.stringify([
-            ["employee", "=", employeeId],
-            ["log_type", "=", "OUT"],
-            // ["time", ">=", `${currentDate} 00:00:00`],
-            // ["time", "<=", `${currentDate} 23:59:59`],
-          ])
-        )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time"]))}&order_by=${encodeURIComponent("time desc")}`
-      );
-      if (logTypeOut.data?.data?.length > 0) {
-        const punchOutTime = getIndianTimeFromDateString(
-          logTypeOut.data.data[0].time
-        );
+  const currentDate = new Date().toISOString().split("T")[0];
 
-        const punchInTime = getIndianTimeFromDateString(
-          logTypeIn.data.data[0].time
-        );
-        const pucnhOutDate = getIndianDateFromDateString(
-          logTypeOut.data.data[0].time
-        );
-        if (
-          new Date(logTypeOut.data.data[0].time) >
-          new Date(logTypeIn.data.data[0].time)
-        ) {
-          await setPunchOutTime(punchOutTime);
-          await setPunchOutDate(pucnhOutDate);
-        } else {
-          await setPunchOutTime("- -");
-          await setPunchOutDate("- -");
-        }
-        const combinedLogs = [
-          ...logTypeIn.data.data,
-          ...logTypeOut.data.data,
-        ].sort((a, b) => new Date(b.time) - new Date(a.time));
-        if (combinedLogs.length > 0) {
-          const latestLog = combinedLogs[0];
-          if (latestLog.log_type === "IN") {
-            setbuttonText("CHECK-OUT");
-            startTimer();
-          } else if (latestLog.log_type === "OUT") {
-            setbuttonText("CHECK-IN");
-            stopTimer();
-          }
-        } else {
-          setbuttonText("CHECK-IN");
-          stopTimer();
-        }
-      } else {
-        if (punchOutTime === "- -" && punchInTime === "- -") {
-          setbuttonText("CHECK-IN");
-          stopTimer();
-        } else {
-          setbuttonText("CHECK-OUT");
-          startTimer();
-        }
-      }
-    } catch (error) {
-      logError("Error fetching check-in data:", error);
+  try {
+    const logTypeIn = await request(
+      "GET",
+      `/api/resource/Employee Checkin?filters=${encodeURIComponent(
+        JSON.stringify([["employee", "=", employeeId], ["log_type", "=", "IN"]])
+      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
+    );
+
+    const logTypeOut = await request(
+      "GET",
+      `/api/resource/Employee Checkin?filters=${encodeURIComponent(
+        JSON.stringify([["employee", "=", employeeId], ["log_type", "=", "OUT"]])
+      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time"]))}&order_by=${encodeURIComponent("time desc")}`
+    );
+
+    // Safe defaults
+    let punchInTime = "- -";
+    let punchOutTime = "- -";
+    let punchInDate = "- -";
+    let punchOutDate = "- -";
+    let workMode = "";
+
+    // Check if IN logs exist
+    if (logTypeIn.data?.data?.length > 0) {
+      const inLog = logTypeIn.data.data[0];
+      punchInTime = getIndianTimeFromDateString(inLog.time);
+      punchInDate = getIndianDateFromDateString(inLog.time);
+      workMode = inLog.work_mode || "";
+      setWorkMode(workMode);
+      setPunchInTime(punchInTime);
+      setPunchInDate(punchInDate);
+    } else {
+      setPunchInTime("- -");
+      setPunchInDate("- -");
     }
-  };
+
+    // Check if OUT logs exist
+    if (logTypeOut.data?.data?.length > 0 && logTypeIn.data?.data?.length > 0) {
+      const outLog = logTypeOut.data.data[0];
+      const inLog = logTypeIn.data.data[0];
+
+      if (new Date(outLog.time) > new Date(inLog.time)) {
+        punchOutTime = getIndianTimeFromDateString(outLog.time);
+        punchOutDate = getIndianDateFromDateString(outLog.time);
+      }
+      setPunchOutTime(punchOutTime);
+      setPunchOutDate(punchOutDate);
+    } else {
+      setPunchOutTime("- -");
+      setPunchOutDate("- -");
+    }
+
+    // Determine button text
+    const combinedLogs = [
+      ...(logTypeIn.data?.data || []),
+      ...(logTypeOut.data?.data || []),
+    ].sort((a, b) => new Date(b.time) - new Date(a.time));
+
+    if (combinedLogs.length > 0) {
+      const latestLog = combinedLogs[0];
+      if (latestLog.log_type === "IN") {
+        setbuttonText("CHECK-OUT");
+        startTimer();
+      } else {
+        setbuttonText("CHECK-IN");
+        stopTimer();
+      }
+    } else {
+      setbuttonText("CHECK-IN");
+      stopTimer();
+    }
+  } catch (error) {
+    logError("Error fetching check-in data:", error);
+  }
+};
+
+
+
 
   const handlePunchInRedirect = async () => {
     if (buttonText == "CHECK-IN" || buttonText == "CHECK-OUT") {
@@ -784,7 +907,7 @@ const isLoggedIn = await getItemFromStorage(Strings.isLoggedIn);
                   ]}
                 >
                 
-                 {/* <TouchableOpacity
+                 <TouchableOpacity
                     style={[
                       styles.favSubCard,
                       { width: "45%", marginBottom: 20 },
@@ -803,7 +926,7 @@ const isLoggedIn = await getItemFromStorage(Strings.isLoggedIn);
                         color={Colors.orangeColor}
                       />
                     </View>
-                  </TouchableOpacity>*/}
+                  </TouchableOpacity>
                 </View>
 
 
