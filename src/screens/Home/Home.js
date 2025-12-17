@@ -41,6 +41,8 @@ import { getCurrentLocation } from "../../api/requestLocationPermission/requestL
 import { OneSignal } from "react-native-onesignal";
 import { getCurrentDateTime } from "../Map/Map";
 import axios from "axios";
+let logoutTimer = null;
+
 
 const Home = () => {
   const navigation = useNavigation();
@@ -64,6 +66,16 @@ const Home = () => {
     scheduleLogoutBeforeMidnight();
     checkSubcription();
   }, []);
+
+
+  useEffect(() => {
+  return () => {
+    if (logoutTimer) {
+      clearTimeout(logoutTimer);
+      logoutTimer = null;
+    }
+  };
+}, []);
 
   const checkSubcription = async () => {
     try {
@@ -118,7 +130,10 @@ const Home = () => {
   const scheduleLogoutBeforeMidnight = async () => {
     const baseURL = await getItemFromStorage(Strings.baseURL);
     if (baseURL !== "http://vizagsteel.multark.com") {
-      await checkPunchedIn();
+      if (employeeId) {
+  await checkPunchedIn();
+}
+
       const now = new Date();
       const logoutTime = new Date();
       logoutTime.setHours(23, 59);
@@ -126,9 +141,10 @@ const Home = () => {
       if (timeUntilLogout < 0) {
         timeUntilLogout += 24 * 60 * 60 * 1000;
       }
-      setTimeout(() => {
-        logoutUser();
-      }, timeUntilLogout);
+      logoutTimer = setTimeout(() => {
+  logoutUser();
+}, timeUntilLogout);
+
     }
   };
   const logoutUser = async () => {
@@ -139,8 +155,9 @@ const Home = () => {
         await checkPunchedIn();
       }
       showToast("Logging out user", false);
-      await setItemToStorage(Strings.userCookie, "");
-      await setItemToStorage(Strings.isLoggedIn, "false");
+      await setItemToStorage(Strings.userCookie, null);
+await setItemToStorage(Strings.isLoggedIn, "false");
+
       navigation.dispatch(
         CommonActions.reset({ index: 0, routes: [{ name: "Login" }] })
       );
@@ -406,10 +423,16 @@ const Home = () => {
     return () => backHandler.remove();
   }, [navigation]);
   useEffect(() => {
+  if (employeeId && isFocused) {
     checkPunchedIn();
-  });
+  }
+}, [employeeId, isFocused]);
+
 
   const checkPunchedIn = async () => {
+const isLoggedIn = await getItemFromStorage(Strings.isLoggedIn);
+  if (isLoggedIn !== "true") return;
+
     const currentDate = new Date().toISOString().split("T")[0];
     try {
       const logTypeIn = await request(
@@ -760,7 +783,8 @@ const Home = () => {
                     { width: !isManuFactuer ? "50%" : null },
                   ]}
                 >
-                  <TouchableOpacity
+                
+                 {/* <TouchableOpacity
                     style={[
                       styles.favSubCard,
                       { width: "45%", marginBottom: 20 },
@@ -779,7 +803,7 @@ const Home = () => {
                         color={Colors.orangeColor}
                       />
                     </View>
-                  </TouchableOpacity>
+                  </TouchableOpacity>*/}
                 </View>
 
 

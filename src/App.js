@@ -52,6 +52,8 @@ import AttendanceFilter from "./screens/Attendance/AttendanceFilter";
 import ProductionEntryList from "./screens/ProductionEntry/ProductionEntryList";
 import CreateProductionEntry from "./screens/ProductionEntry/CreateProductionEntry";
 import SalesOfficerCollectionList from "./screens/SalesCollection/SalesOfficerCollectionList";
+
+import SelectOfficeLocation from "./screens/SelectLocation/selectLocation";
 const Stack = createNativeStackNavigator();
 
 const App = () => {
@@ -140,6 +142,14 @@ const App = () => {
                 component={LoginForm}
                 options={{ headerShown: false, gestureEnabled: false }}
               />
+
+                <Stack.Screen
+    name="SelectOfficeLocation"
+    component={SelectOfficeLocation}
+    options={{ headerShown: false }}
+  />
+
+
               <Stack.Screen
                 name="Dashboard"
                 component={Home}

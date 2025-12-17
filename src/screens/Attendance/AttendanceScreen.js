@@ -95,6 +95,7 @@ const AttendanceScreen = ({ route }) => {
     const adjustedHours = (hours % 12 || 12).toString().padStart(2, "0");
     return `${day}/${month}/${year} \n${adjustedHours}:${minutes} ${period}`;
   };
+
   const getTotalWorkHoursForDate = (checkins, date, employeeName) => {
     const logs = checkins
       .filter((entry) => {
@@ -119,6 +120,14 @@ const AttendanceScreen = ({ route }) => {
 
     const totalHours = totalMilliseconds / (1000 * 60 * 60);
     return totalHours.toFixed(2) + " hrs";
+  };
+
+  // ✅ NEW: OT column logic (without changing existing code)
+  const getOvertimeForDate = (checkins, date, employeeName) => {
+    const totalStr = getTotalWorkHoursForDate(checkins, date, employeeName); // "11.00 hrs"
+    const totalHours = parseFloat(totalStr) || 0;
+    const ot = totalHours > 8 ? totalHours - 8 : 0;
+    return ot.toFixed(2) + " hrs";
   };
 
   return (
@@ -155,6 +164,10 @@ const AttendanceScreen = ({ route }) => {
             <CustomText style={styles.tableHeaderText}>
               Total Work Hours
             </CustomText>
+
+            {/* ✅ NEW COLUMN HEADER */}
+            <CustomText style={styles.tableHeaderText}>OT</CustomText>
+
             <CustomText style={styles.tableHeaderText}>Log Type</CustomText>
           </View>
 
@@ -198,7 +211,9 @@ const AttendanceScreen = ({ route }) => {
                               });
                             };
 
-                            return `${matchedShift.name} ${formatTime(matchedShift.start_time)} - ${formatTime(matchedShift.end_time)}`;
+                            return `${matchedShift.name} ${formatTime(
+                              matchedShift.start_time
+                            )} - ${formatTime(matchedShift.end_time)}`;
                           } else {
                             return "NA";
                           }
@@ -214,6 +229,18 @@ const AttendanceScreen = ({ route }) => {
                         )
                       : "NA"}
                   </CustomText>
+
+                  {/* ✅ NEW OT CELL */}
+                  <CustomText style={styles.tableCell}>
+                    {employeeCheckins
+                      ? getOvertimeForDate(
+                          employeeCheckins,
+                          item.time,
+                          item.employee_name
+                        )
+                      : "NA"}
+                  </CustomText>
+
                   <CustomText
                     style={[
                       styles.tableCell,
