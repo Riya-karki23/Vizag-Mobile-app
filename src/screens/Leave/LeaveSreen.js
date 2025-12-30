@@ -226,7 +226,9 @@ const LeaveScreen = () => {
         from_date: formatDate(postingDate),
         to_date: formatDate(postingDate),
       }),
-      reason: description,
+      // reason: description,
+      description: description,
+
     };
     const errors = validateFormData(formData);
 
@@ -280,7 +282,9 @@ const LeaveScreen = () => {
     if (!formData.owner) errors.push("Owner is required.");
     if (checked && !formData.half_day_date)
       errors.push("Half day date is required.");
-    if (!formData.reason) errors.push("Leave Reason is required.");
+    // if (!formData.reason) errors.push("Leave Reason is required.");
+      if (!formData.description) errors.push("Leave Reason is required.");
+
     if (
       checked &&
       (typeof formData.half_day !== "number" ||

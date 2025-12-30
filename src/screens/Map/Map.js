@@ -1,11 +1,11 @@
+// ✅ MAP.js — Office selected => geofence enforced (IN & OUT)
+// ✅ FIX: Prevent early-click bypass by resolving mode from storage at click time + disabling button until init completes
+// ✅ FIX: Proper API error handling (shows real backend message)
+// ✅ FIX: Robust success detection (statusCode/status/data)
+// ✅ NEW: Store latest punch location in storage (overwrites previous) after IN/OUT success
+
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  TextInput,
-} from "react-native";
+import { View, StyleSheet, TouchableOpacity, Dimensions, Text } from "react-native";
 import MapView, { Marker, Circle } from "react-native-maps";
 import {
   requestLocationPermission,
@@ -15,218 +15,93 @@ import Icon from "react-native-vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { handleErrorResponse, request } from "../../api/auth/auth";
 import { showToast } from "../../constant/toast";
-import { logError, logInfo } from "../../constant/logger";
+import { logError } from "../../constant/logger";
 import Loader from "../../component/loader/appLoader";
 import { Colors } from "../../constant/color";
-import CustomText from "../../component/CustomText/customText";
 import { Strings } from "../../constant/string_constant";
-import { LayoutAnimation, Platform } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import BackgroundWrapper from "../../Background";
 import images from "../../constant/image";
-import { getItemFromStorage } from "../../utils/asyncStorage";
-import {
-  resetTimer,
-  startTimer,
-  stopTimer,
-} from "../../component/Timer/logDurationTimer";
+import { getItemFromStorage, setItemToStorage } from "../../utils/asyncStorage";
+import { resetTimer, startTimer, stopTimer } from "../../component/Timer/logDurationTimer";
 import { useIsFocused } from "@react-navigation/native";
-import { Alert } from "react-native";
 import { scheduleNotification } from "../../api/requestPushNotificationPermission/requestPushNotificationPermission";
+
 const { width } = Dimensions.get("window");
 const baseWidth = 375;
 const desiredFontSize = 14;
 const responsiveFontSize = desiredFontSize * (width / baseWidth);
+
+const MODE_KEY = "work_mode_selected"; // "office" | "out_duty" | "marketing"
+
+// ✅ Latest punch location storage key (overwrite always)
+const LAST_PUNCH_KEY = "last_punch_location"; // { latitude, longitude, time, log_type, mode }
+
+const DEFAULT_OFFICE = {
+  latitude: 17.6918384,
+  longitude: 83.1997948,
+  radius: 500,
+};
+
 const MAP = ({ navigation, route }) => {
-  const { imageUrl } = route.params || "";
+  const p = route?.params || {};
+
+  // ✅ robust param read (supports imageUrl / image_url / file_url)
+  const imageUrl = String(p.imageUrl || p.image_url || p.file_url || "");
+  console.log("🧾 MAP received params:", p);
+  console.log("✅ MAP resolved imageUrl:", imageUrl);
+    const safeImageUrl = String(imageUrl || "");
+console.log("📸 Punch IN custom_picture:", safeImageUrl);
+
   const isFocus = useIsFocused();
-  const [employeeShift, setEmployeeShift] = useState(null);
-  const [shiftTypeList, setSetShiftTypeList] = useState([]);
-  const [shiftDropDownVisible, setshiftDropDownVisible] = useState(false);
-  const [geofenceRadius, setgeofenceRadius] = useState(null);
-  const [naviMumbaiLocation, setNaviMumbaiLocation] = useState({
-    latitude: null,
-    longitude: null,
-  });
+
+
+  const [mode, setMode] = useState("out_duty"); // safe default
+  const [geofenceRadius, setgeofenceRadius] = useState(DEFAULT_OFFICE.radius);
   const [officeLocation, setOfficeLocation] = useState({
-    latitude: null,
-    longitude: null,
+    latitude: DEFAULT_OFFICE.latitude,
+    longitude: DEFAULT_OFFICE.longitude,
   });
+
   const [region, setRegion] = useState({
-    latitude: naviMumbaiLocation.latitude,
-    longitude: naviMumbaiLocation.longitude,
-    latitudeDelta: 0.5,
-    longitudeDelta: 0.5,
+    latitude: 19.076,
+    longitude: 72.8777,
+    latitudeDelta: 0.02,
+    longitudeDelta: 0.02,
   });
-  const [availableOptions, setAvailableOptions] = useState([]);
+
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [workFrom, setWorkFrom] = useState("Select Your Location");
-  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isPunchedIn, setIsPunchedIn] = useState(false);
-  const [userData, setUserData] = useState(null);
+
   const [employeeId, setEmployeeId] = useState(null);
   const [companyName, setcompanyName] = useState("");
+  const [isPunchedIn, setIsPunchedIn] = useState(false);
   const [checked, setChecked] = useState(false);
-  const [isNightShift, setIsNightShift] = useState(false);
-  const options = [
-    { label: "Office", value: "Office" },
-    { label: "Onfield", value: "Onfield" },
-    // { label: "Work from Home", value: "Work from Home" },
-  ];
-  useEffect(() => {
-    init();
-  }, [isFocus]);
 
-  const init = async () => {
-    try {
-      setLoading(true);
-      const permission = await requestLocationPermission();
-      setPermissionGranted(permission);
-      const storedUserName = await getItemFromStorage(Strings.userName);
-      setUsername(storedUserName || "");
-      if (permission) {
-        try {
-          try {
-            const offcieLocation = await getItemFromStorage(
-              Strings.offceCoordinate
-            );
-            const geoFenceRadius = await getItemFromStorage(
-              Strings.offceGeoFenceRadius
-            );
+  // ✅ NEW: init complete flag (prevents early-click bypass)
+  const [modeReady, setModeReady] = useState(false);
 
-            if (JSON.parse(offcieLocation).latitude) {
-              const parsedLocation = offcieLocation
-                ? JSON.parse(offcieLocation)
-                : null;
+ const normalizeMode = (raw) => {
+  const v = String(raw || "").trim().toLowerCase();
 
-              setgeofenceRadius(geoFenceRadius);
-              const officeLocationlatitude = parseFloat(
-                parsedLocation.latitude
-              );
-              const officeLocatiolongitude = parseFloat(
-                parsedLocation.longitude
-              );
-              setOfficeLocation({
-                latitude: officeLocationlatitude,
-                longitude: officeLocatiolongitude,
-              });
-              setNaviMumbaiLocation({
-                latitude: officeLocationlatitude,
-                longitude: officeLocatiolongitude,
-              });
-              const locationData = await getCurrentLocation(permission);
-              if (locationData !== null) {
-                const { latitude, longitude } = locationData;
-                const distance = calculateDistance(
-                  officeLocationlatitude,
-                  officeLocatiolongitude,
-                  latitude,
-                  longitude
-                );
-                setRegion({
-                  latitude: locationData.latitude,
-                  longitude: locationData.longitude,
-                  latitudeDelta: 0.002,
-                  longitudeDelta: 0.002,
-                });
+  // office aliases
+  if (v === "office" || v === "in office") return "office";
 
-                if (distance <= geoFenceRadius) {
-                  setWorkFrom(options[0].value);
-                  setSelectedLocation(options[0].value);
-                  setAvailableOptions(
-                    options.filter(
-                      (option) =>
-                        option.value !== "Onfield" &&
-                        option.value !== "Work from Home"
-                    )
-                  );
-                  setLoading(false);
-                } else {
-                  const employeeResponse = await request(
-                    "GET",
-                    `/api/resource/Employee?filters=[["user_id", "=", "${storedUserName}"]]&fields=["company","name","default_shift","department"]`
-                  );
+  // non-office aliases
+  if (v === "marketing") return "marketing";
+  if (v === "out_duty" || v === "out duty" || v === "outduty") return "out_duty";
+  if (v === "wfh" || v === "work from home" || v === "workfromhome") return "wfh";
+  if (v === "anywhere") return "anywhere";
 
-                  const employee = await employeeResponse.data.data[0];
-                  console.log(
-                    "Employee Response:",employee.department
-                  );
-                  if (employee) {
-                    if (employee.department === "Sales - V") {
+  return v || ""; // never default to office
+};
 
-                      const newOptions = options
-                        .filter(
-                          (option) =>
-                            option.value !== "Office" &&
-                            option.value !== "Work from Home"
-                        )
-                        .concat({
-                          label: "Marketing",
-                          value: "Marketing",
-                        });
-                      setAvailableOptions(newOptions);
-                    } else if (employee.department === "Accounts - V") {
-                      const newOptions = options
-                        .filter(
-                          (option) =>
-                            option.value !== "Office" &&
-                            option.value !== "Onfield"
-                        )
-                        .concat({
-                          label: "Work from Home",
-                          value: "Work from Home",
-                        });
-                      setAvailableOptions(newOptions);
-                      setWorkFrom(newOptions[0].value);
-                      setSelectedLocation(newOptions[0].value);
-                    } else {
-                      setWorkFrom(options[1].value);
-                      setSelectedLocation(options[1].value);
-                      setAvailableOptions(
-                        options.filter((option) => option.value !== "Office")
-                      );
-                    }
-                  } else {
-                    logError(
-                      "Employee not found for the given user",
-                      employeeResponse.data.data[0]
-                    );
-                    showToast("Employee not found for the given user");
-                  }
-
-                  setLoading(false);
-                }
-              } else {
-                setLoading(false);
-                logInfo("------------------->", "this method call");
-              }
-            } else {
-              setLoading(false);
-              showToast(
-                "Current Office Location Latitude and logitue not found"
-              );
-              logInfo(
-                "------------------->",
-                "Office Latitue and logitue not found"
-              );
-            }
-          } catch (e) {
-            setLoading(false);
-            logError(e);
-          }
-        } catch (e) {
-          showToast(e);
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
-        showToast("Location permission is required to use this feature.");
-      }
-    } catch (error) {
-      setLoading(false);
-      logError("Initialization error:", error);
-    }
+  // ✅ location shape safe
+  const pickLatLng = (loc) => {
+    const lat = loc?.latitude ?? loc?.coords?.latitude;
+    const lng = loc?.longitude ?? loc?.coords?.longitude;
+    if (typeof lat === "number" && typeof lng === "number") return { latitude: lat, longitude: lng };
+    return null;
   };
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -236,713 +111,505 @@ const MAP = ({ navigation, route }) => {
     const dLon = toRad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
 
+  // ✅ office config ONLY from storage radius (coords always fixed)
+  const getOfficeConfig = async () => {
+    try {
+      const geoFenceRadiusStr = await getItemFromStorage(Strings.offceGeoFenceRadius);
+      let r = geoFenceRadiusStr;
+
+      try {
+        // handle '"500"' or '500'
+        if (typeof r === "string" && r.trim().startsWith('"')) r = JSON.parse(r);
+      } catch (e) {}
+
+      const radius = Number(r || DEFAULT_OFFICE.radius);
+      const finalRadius = Number.isFinite(radius) ? radius : DEFAULT_OFFICE.radius;
+
+      const finalLat = DEFAULT_OFFICE.latitude;
+      const finalLng = DEFAULT_OFFICE.longitude;
+
+      setOfficeLocation({ latitude: finalLat, longitude: finalLng });
+      setgeofenceRadius(finalRadius);
+
+      return { officeLat: finalLat, officeLng: finalLng, radius: finalRadius };
+    } catch (e) {
+      logError("getOfficeConfig error:", e);
+      setOfficeLocation({ latitude: DEFAULT_OFFICE.latitude, longitude: DEFAULT_OFFICE.longitude });
+      setgeofenceRadius(DEFAULT_OFFICE.radius);
+      return { officeLat: DEFAULT_OFFICE.latitude, officeLng: DEFAULT_OFFICE.longitude, radius: DEFAULT_OFFICE.radius };
+    }
+  };
+
+  const resolveModeNow = async () => {
+    const savedMode = normalizeMode(await getItemFromStorage(MODE_KEY));
+    return savedMode;
+  };
+
+  const storeLatestPunchLocation = async ({ latitude, longitude, log_type, modeLabel }) => {
+    try {
+      await setItemToStorage(
+        LAST_PUNCH_KEY,
+        JSON.stringify({
+          latitude,
+          longitude,
+          time: getCurrentDateTime(),
+          log_type,
+          mode: modeLabel,
+        })
+      );
+    } catch (e) {
+      // silent
+    }
+  };
+
+  const init = async () => {
+    try {
+      setLoading(true);
+      setModeReady(false);
+
+      // ✅ if forced mode passed, store it
+      const forced = route?.params?.forceMode;
+      if (forced) {
+        const resolvedForced = normalizeMode(forced);
+        await setItemToStorage(MODE_KEY, resolvedForced);
+        setMode(resolvedForced);
+      }
+
+      const savedMode = await getItemFromStorage(MODE_KEY);
+      const resolvedMode = normalizeMode(savedMode);
+
+      await setItemToStorage(MODE_KEY, resolvedMode);
+      setMode(resolvedMode);
+
+      const permission = await requestLocationPermission();
+      setPermissionGranted(permission);
+
+      if (!permission) {
+        showToast("Location permission is required to use this feature.");
+        return;
+      }
+
+      const locationData = await getCurrentLocation(true);
+      const pos = pickLatLng(locationData);
+
+      if (resolvedMode === "office") {
+        await getOfficeConfig();
+      }
+
+      if (pos) {
+        setRegion({
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+          latitudeDelta: 0.002,
+          longitudeDelta: 0.002,
+        });
+      } else {
+        showToast("Location not found. Please retry.");
+      }
+    } catch (err) {
+      logError("init error:", err);
+      showToast("Failed to load location. Please retry.");
+    } finally {
+      setLoading(false);
+      setModeReady(true);
+    }
+  };
+
+  useEffect(() => {
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFocus]);
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        setLoading(true);
         const userName = await getItemFromStorage(Strings.userName);
         const session = await getItemFromStorage(Strings.userCookie);
-        if (userName && session) {
-          const userResponse = await request(
-            "GET",
-            `/api/resource/User/${userName}`
-          );
-          setUserData(userResponse.data.data);
-          const employeeResponse = await request(
-            "GET",
-            `/api/resource/Employee?filters=[["user_id", "=", "${userName}"]]&fields=["company","name","default_shift","department"]`
-          );
-          const shiftTypeList = await request(
-            "GET",
-            `/api/resource/Shift Type?fields=["name","start_time","end_time"]`
-          );
-          setSetShiftTypeList(shiftTypeList.data.data);
-          if (employeeResponse.data.data[0]) {
-            const employee = employeeResponse.data.data[0];
-            setEmployeeId(employee.name);
-            // setEmployeeShift(employee.default_shift);
-            setcompanyName(employee.company);
-          } else {
-            logError(
-              "Employee not found for the given user",
-              employeeResponse.data.data[0]
-            );
-            showToast("Employee not found for the given user");
-          }
-        } else {
-          setError("No user information found");
+        if (!userName || !session) return;
+
+        const employeeResponse = await request(
+          "GET",
+          `/api/resource/Employee?filters=[["user_id", "=", "${userName}"]]&fields=["company","name","default_shift","department"]`
+        );
+
+        if (employeeResponse?.data?.data?.[0]) {
+          const employee = employeeResponse.data.data[0];
+          setEmployeeId(employee.name);
+          setcompanyName(employee.company);
         }
       } catch (error) {
-        logError("Failed to fetch user data:", error.response || error.message);
-        setError("Failed to fetch user data");
-        // setLoading(false);
-      } finally {
-        // setLoading(false);
+        logError("Failed to fetch user data:", error?.response || error?.message);
       }
     };
 
     fetchUserData();
   }, []);
+
   async function fetchLogType(logType) {
-    const currentDate = new Date().toISOString().split("T")[0];
-    const response = await request(
+    return request(
       "GET",
       `/api/resource/Employee Checkin?filters=${encodeURIComponent(
         JSON.stringify([
           ["employee", "=", employeeId],
           ["log_type", "=", logType],
-          // ["time", ">=", `${currentDate} 00:00:00`],
-          // ["time", "<=", `${currentDate} 23:59:59`],
         ])
-      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode", "night_shift"]))}&order_by=${encodeURIComponent("time desc")}`
+      )}&fields=${encodeURIComponent(
+        JSON.stringify(["log_type", "time", "work_mode", "night_shift"])
+      )}&order_by=${encodeURIComponent("time desc")}`
     );
-    return response;
   }
+
   useEffect(() => {
+    if (!employeeId) return;
+
     const checkPunchedIn = async () => {
       try {
         const logTypeIn = await fetchLogType("IN");
         const logTypeOut = await fetchLogType("OUT");
+
         const combinedLogs = [
-          ...logTypeIn.data.data,
-          ...logTypeOut.data.data,
+          ...(logTypeIn?.data?.data || []),
+          ...(logTypeOut?.data?.data || []),
         ].sort((a, b) => new Date(b.time) - new Date(a.time));
 
-        if (combinedLogs.length > 0) {
-          const latestLog = combinedLogs[0];
-          if (latestLog.log_type === "IN") {
-            setIsPunchedIn(true);
-          } else if (latestLog.log_type === "OUT") {
-            setIsPunchedIn(false);
-          }
-        } else {
-          setIsPunchedIn(false);
-        }
+        setIsPunchedIn(combinedLogs?.[0]?.log_type === "IN");
       } catch (error) {
-        setLoading(false);
         logError("Error fetching check-in data:", error);
       }
     };
 
     checkPunchedIn();
-  });
+  }, [employeeId, isFocus]);
+
+  const isOkResponse = (res) => {
+    return (
+      res?.statusCode === 200 ||
+      res?.status === 200 ||
+      res?.data?.data ||
+      res?.data?.message
+    );
+  };
+
+  const showApiErrorIfAny = async (res, fallback = "Request failed") => {
+    if (res?.error) {
+      const msg = await handleErrorResponse(res.error);
+      showToast(`${fallback}: ${msg}`);
+      return true;
+    }
+    return false;
+  };
+
+
+
+
   const handlePunchIn = async () => {
-    if (workFrom === "Select Your Location") {
-      showToast("Please Select Your Location");
+    if (!permissionGranted) {
+      showToast("Please allow location permission first.");
+      await init();
       return;
     }
 
-    // if (employeeShift === null) {
-    //   showToast("Please Select Your Shift");
-    //   return;
-    // }
+    if (!employeeId) {
+      showToast("Employee not loaded yet. Please wait.");
+      return;
+    }
+
+    if (!modeReady) {
+      showToast("Please wait... loading mode & location.");
+      return;
+    }
+
+    const resolvedModeNow = await resolveModeNow();
+    const mustBeInOffice = resolvedModeNow === "office";
+
+    let officeCfg = null;
+    if (mustBeInOffice) {
+      officeCfg = await getOfficeConfig();
+    }
 
     setLoading(true);
 
     try {
-      const locationData = await getCurrentLocation(permissionGranted);
-      if (!locationData) {
+      const locationData = await getCurrentLocation(true);
+      const pos = pickLatLng(locationData);
+
+      if (!pos) {
         showToast("Failed to retrieve location. Please try again.");
-        setLoading(false);
         return;
       }
 
-      const { latitude, longitude } = locationData;
-      const distance = calculateDistance(
-        officeLocation.latitude,
-        officeLocation.longitude,
-        latitude,
-        longitude
-      );
-      if (workFrom === "Office" || selectedLocation === "Office") {
-        if (distance <= geofenceRadius) {
-          const punchInTime = new Date().toLocaleTimeString();
-          const response = await request(
-            "POST",
-            `/api/resource/Employee Checkin`,
-            JSON.stringify({
-              employee: employeeId,
-              log_type: "IN",
-              time: getCurrentDateTime(),
-              // night_shift: isNightShift === true ? 1 : 0,
-              // shift: employeeShift,
-              custom_picture: imageUrl,
-              work_mode:
-                Platform.OS === "ios" ? selectedLocation : workFrom,
-              latitude: latitude,
-              longitude: longitude,
-            })
-          );
+      const { latitude, longitude } = pos;
 
-          if (response.statusCode == 200) {
-            scheduleNotification(new Date());
-            startTimer();
-            showToast("Check In successful!", false);
-            // setLoading(false);
-            navigation.navigate("Home", { punchInTime });
-          } else {
-            showToast("Punch In failed. Please try again.");
-          }
-        } else {
-          setLoading(false);
-          showToast("You are outside the geofence zone.");
-        }
-      } else {
-        const punchInTime = new Date().toLocaleTimeString();
-
-        const response = await request(
-          "POST",
-          `/api/resource/Employee Checkin`,
-          JSON.stringify({
-            employee: employeeId,
-            log_type: "IN",
-            time: getCurrentDateTime(),
-            // shift: employeeShift,
-            // night_shift: isNightShift === true ? 1 : 0,
-            custom_picture: imageUrl,
-            work_mode:
-              Platform.OS === "ios" ? selectedLocation : workFrom,
-            latitude: latitude,
-            longitude: longitude,
-          })
+      if (mustBeInOffice) {
+        const distance = calculateDistance(
+          officeCfg.officeLat,
+          officeCfg.officeLng,
+          latitude,
+          longitude
         );
 
-        if (response.statusCode == 200) {
-          scheduleNotification(new Date());
-          setLoading(false);
-          startTimer();
-          showToast("Check In successful!", false);
-          navigation.navigate("Home", { punchInTime });
-        } else {
-          setLoading(false);
-          stopTimer();
-          showToast("Punch In failed. Please try again.");
+        if (distance > Number(officeCfg.radius || 0)) {
+          showToast("You are out of office area. Please go inside office location.");
+          return;
         }
       }
 
-      setRegion({ ...region, latitude, longitude });
+      const work_mode =
+        mustBeInOffice ? "Office" : resolvedModeNow === "marketing" ? "Marketing" : "Out Duty";
+
+      const response = await request(
+        "POST",
+        `/api/resource/Employee Checkin`,
+        JSON.stringify({
+          employee: employeeId,
+          log_type: "IN",
+          time: getCurrentDateTime(),
+          custom_picture: safeImageUrl,
+          work_mode,
+          latitude,
+          longitude,
+        })
+      );
+
+      // ✅ show real backend error
+      if (await showApiErrorIfAny(response, "Punch In failed")) return;
+
+      if (!isOkResponse(response)) {
+        showToast(`Punch In failed. Code: ${response?.statusCode || response?.status || "NA"}`);
+        return;
+      }
+
+      // ✅ store latest punch location (overwrite previous)
+      await storeLatestPunchLocation({ latitude, longitude, log_type: "IN", modeLabel: work_mode });
+
+      scheduleNotification(new Date());
+      startTimer();
+      showToast("Check In successful!", false);
+      navigation.navigate("Home");
     } catch (error) {
-      setLoading(false);
-      logError("Location Error:", error.message);
-      showToast("Failed to process punch in. Please try again.");
+      logError("Punch In error:", error);
+      showToast(`Failed to process punch in. Please try again. ${error?.message || ""}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePunchOut = async () => {
-    setLoading(true);
-    // if (employeeShift === null) {
-    //   showToast("Please Select Your Shift");
-    //   setLoading(false);
-    //   return;
-    // }
-    try {
-      const locationData = await getCurrentLocation(permissionGranted);
-      if (!locationData) {
-        showToast("Failed to retrieve location. Please try again.");
-        setLoading(false);
-        return;
-      }
-
-      const { latitude, longitude } = locationData;
-      const distance = calculateDistance(
-        officeLocation.latitude,
-        officeLocation.longitude,
-        latitude,
-        longitude
-      );
-      const logTypeIn = await fetchLogType("IN");
-      const currentDate = new Date();
-      const formattedDate = currentDate.toISOString().split("T")[0];
-      const attendance_date =
-        logTypeIn?.data?.data[0] === 1
-          ? new Date(currentDate.setDate(currentDate.getDate() - 1))
-              .toISOString()
-              .split("T")[0]
-          : formattedDate;
-      const totalHours = await getItemFromStorage(Strings.totalHours);
-      if (logTypeIn.data.data[0].work_mode == "Office") {
-        if (distance <= geofenceRadius) {
-          const response = await request(
-            "POST",
-            `/api/resource/Employee Checkin`,
-            JSON.stringify({
-              employee: employeeId,
-              log_type: "OUT",
-              // night_shift: logTypeIn?.data?.data[0]?.night_shift === 1,
-              time: getCurrentDateTime(),
-              // shift: employeeShift,
-               custom_picture: imageUrl,
-              custom_hours: totalHours,
-              work_mode: logTypeIn.data.data[0].work_mode,
-              latitude: latitude,
-              longitude: longitude,
-            })
-          );
-          if (response.statusCode == 200) {
-            if (checked) {
-              await markAttendance({
-                employee: employeeId,
-                status: getAttendanceStatus(totalHours),
-                docstatus: 1,
-                attendance_date: attendance_date,
-                company: companyName,
-              });
-              await stopTimer();
-              await resetTimer();
-            }
-            const punchOutTime = new Date().toLocaleTimeString();
-            stopTimer();
-            showToast("Check Out successful!", false);
-            setChecked(false);
-            navigation.navigate("Home", { punchOutTime });
-          } else {
-            showToast("Punch Out failed. Please try again.");
-          }
-        } else {
-          showToast("Error: You are currently outside the office location!");
-        }
-      } else {
-        const response = await request(
-          "POST",
-          `/api/resource/Employee Checkin`,
-          JSON.stringify({
-            employee: employeeId,
-            log_type: "OUT",
-            // shift: employeeShift,
-            // night_shift: logTypeIn?.data?.data[0]?.night_shift === 1,
-            custom_hours: totalHours,
-            work_mode: logTypeIn.data.data[0].work_mode,
-            latitude: latitude,
-            time: getCurrentDateTime(),
-            longitude: longitude,
-          })
-        );
-        if (response.statusCode == 200) {
-          if (checked) {
-            await markAttendance({
-              employee: employeeId,
-              status: getAttendanceStatus(totalHours),
-              docstatus: 1,
-              attendance_date: attendance_date,
-              company: companyName,
-              custom_total_working_hours: totalHours,
-              custom_overtime_hours: await getOvertime(totalHours),
-            });
-            await stopTimer();
-            await resetTimer();
-          }
-          const punchOutTime = new Date().toLocaleTimeString();
-          stopTimer();
-          showToast("Check Out successful!", false);
-          setChecked(false);
-          navigation.navigate("Home", { punchOutTime });
-        } else {
-          showToast("Punch Out failed. Please try again.");
-        }
-      }
-    } catch (error) {
-      // stopTimer();
-      showToast(
-        `Failed to process punch out. Please try again. ${error.message}`
-      );
-    } finally {
-      // stopTimer();
-      setLoading(false);
-    }
+  const getAttendanceStatus = (totalHours) => {
+    const [hours] = (totalHours || "0:0").split(":").map(Number);
+    if (hours < 4) return "Absent";
+    if (hours >= 4 && hours <= 7) return "Half Day";
+    return "Present";
   };
 
   const getOvertime = async (totalHoursStr) => {
     const totalHours = parseFloat(totalHoursStr || "0");
     const normalHours = 8;
-    const overtime = totalHours > normalHours ? totalHours - normalHours : 0;
-    logInfo("Overtime:", overtime);
-    return overtime;
+    return totalHours > normalHours ? totalHours - normalHours : 0;
   };
 
   const markAttendance = async (data) => {
     try {
-      const response = await request(
-        "POST",
-        `/api/resource/Attendance`,
-        JSON.stringify(data)
-      );
+      const response = await request("POST", `/api/resource/Attendance`, JSON.stringify(data));
       if (response?.error) {
-        showToast(
-          `Failed to mark attendance ${await handleErrorResponse(response.error)}`
-        );
+        showToast(`Failed to mark attendance ${await handleErrorResponse(response.error)}`);
       }
     } catch (error) {
-      setChecked(false);
-      logError(`Failed to mark attendance `, error);
+      logError(`Failed to mark attendance`, error);
     }
   };
-  const getAttendanceStatus = (totalHours) => {
-    const [hours] = totalHours.split(":").map(Number);
-    if (hours < 4) {
-      return "Absent";
-    } else if (hours >= 4 && hours <= 7) {
-      return "Half Day";
-    } else {
-      return "Present";
+
+
+
+  const handlePunchOut = async () => {
+    if (!permissionGranted) {
+      showToast("Please allow location permission first.");
+      await init();
+      return;
     }
-  };
-  const toggleCheckbox = () => {
-    setChecked(!checked);
-  };
-  const toggleNightShift = () => {
-    setIsNightShift(!isNightShift);
-  };
-  const [dropdownVisible, setDropdownVisible] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState(
-    "Select Your Location"
+
+    if (!employeeId) {
+      showToast("Employee not loaded yet. Please wait.");
+      return;
+    }
+
+    if (!modeReady) {
+      showToast("Please wait... loading mode & location.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const locationData = await getCurrentLocation(true);
+      const pos = pickLatLng(locationData);
+
+      if (!pos) {
+        showToast("Failed to retrieve location. Please try again.");
+        return;
+      }
+
+      const { latitude, longitude } = pos;
+
+      const logTypeIn = await fetchLogType("IN");
+      const lastInRow = logTypeIn?.data?.data?.[0];
+
+      if (!lastInRow) {
+        showToast("No IN record found. Please check your logs.");
+        return;
+      }
+
+      const totalHours = await getItemFromStorage(Strings.totalHours);
+
+    
+      
+  // ✅ only CURRENT selected mode matters (not last IN mode)
+const resolvedModeNow = await resolveModeNow();
+const currentSelectedOffice = normalizeMode(resolvedModeNow) === "office";
+
+// ✅ enforce ONLY if CURRENT selected mode is office
+if (currentSelectedOffice) {
+  const officeCfg = await getOfficeConfig();
+  const distance = calculateDistance(
+    officeCfg.officeLat,
+    officeCfg.officeLng,
+    latitude,
+    longitude
   );
-  const handleSelectLocation = (location) => {
-    setWorkFrom(location.value);
-    setSelectedLocation(location.value);
-    setDropdownVisible(false);
+
+  if (distance > Number(officeCfg.radius || 0)) {
+    showToast("You are out of office area. Please go inside office location.");
+    return;
+  }
+}
+
+// ✅ OUT work_mode based ONLY on current selection
+const selected = normalizeMode(resolvedModeNow);
+const resolvedOutMode =
+  selected === "office"
+    ? "Office"
+    : selected === "marketing"
+    ? "Marketing"
+    : "Out Duty";
+
+
+
+      const response = await request(
+        "POST",
+        `/api/resource/Employee Checkin`,
+        JSON.stringify({
+          employee: employeeId,
+          log_type: "OUT",
+          time: getCurrentDateTime(),
+          custom_picture: safeImageUrl,
+
+          custom_hours: totalHours,
+          work_mode: resolvedOutMode,
+          latitude,
+          longitude,
+        })
+      );
+
+      // ✅ show real backend error
+      if (await showApiErrorIfAny(response, "Punch Out failed")) return;
+
+      if (!isOkResponse(response)) {
+        showToast(`Punch Out failed. Code: ${response?.statusCode || response?.status || "NA"}`);
+        return;
+      }
+
+      // ✅ store latest punch location (overwrite previous)
+      await storeLatestPunchLocation({ latitude, longitude, log_type: "OUT", modeLabel: resolvedOutMode });
+
+      if (checked) {
+        await markAttendance({
+          employee: employeeId,
+          status: getAttendanceStatus(totalHours),
+          docstatus: 1,
+          attendance_date: new Date().toISOString().split("T")[0],
+          company: companyName,
+          custom_total_working_hours: totalHours,
+          custom_overtime_hours: await getOvertime(totalHours),
+        });
+        await stopTimer();
+        await resetTimer();
+      }
+
+      stopTimer();
+      showToast("Check Out successful!", false);
+
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Main" }],
+      });
+    } catch (error) {
+      logError("Punch Out error:", error);
+      showToast(`Failed to process punch out. Please try again. ${error?.message || ""}`);
+    } finally {
+      setLoading(false);
+    }
   };
+
   return (
     <BackgroundWrapper imageSource={images.mainBackground}>
       <SafeAreaView style={{ flex: 1 }}>
         {!loading && (
           <View style={styles.container}>
             <View>
-              <TouchableOpacity
-                style={styles.backButtonOUT}
-                onPress={() => navigation.goBack()}
-              >
-                <Icon
-                  name="chevron-back"
-                  size={35}
-                  color={Colors.orangeColor}
-                />
+              <TouchableOpacity style={styles.backButtonOUT} onPress={() => navigation.goBack()}>
+                <Icon name="chevron-back" size={35} color={Colors.orangeColor} />
               </TouchableOpacity>
-                 {/* <TouchableOpacity
-                onPress={() => {
-                  LayoutAnimation.configureNext(
-                    LayoutAnimation.Presets.easeInEaseOut
-                  );
-                  setshiftDropDownVisible(!shiftDropDownVisible);
-                }}
-                style={{ marginTop: 10 }}
-              >
-                <TextInput
-                  style={styles.input}
-                  pointerEvents="none"
-                  placeholderTextColor={Colors.blackColor}
-                  placeholder={employeeShift || "Select Your Shift"}
-                  selectedValue={employeeShift}
-                  editable={false}
-                />
-           </TouchableOpacity> */}
 
-              {shiftDropDownVisible && (
-                <View
-                  style={{
-                    shadowColor: Colors.blackColor,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 5,
-                    borderColor: Colors.lightGreyColor,
-                    padding: 4,
-                    borderWidth: 1,
-                    borderRadius: 12,
-                    fontSize: 14,
-                    marginTop: 10,
-                    marginHorizontal: 15,
-                    backgroundColor: Colors.whiteColor,
-                  }}
-                >
-                  {shiftTypeList.map((shift, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => {
-                        setEmployeeShift(shift.name);
-                        setshiftDropDownVisible(false);
-                      }}
-                      style={styles.dropdownItem}
-                    >
-                      <CustomText style={{ color: Colors.blackColor }}>
-                        {shift.name} {"("}
-                        {shift.start_time}-{shift.end_time}
-                        {")"}
-                      </CustomText>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-              {isPunchedIn && (
-                <>
-                  {/* <View style={styles.noteContainer}>
-                    <Icon
-                      name="information-circle-outline"
-                      size={25}
-                      color={Colors.orangeColor}
-                    />
-                    <CustomText style={styles.noteText}>
-                      Always select{" "}
-                      <CustomText style={styles.boldText}>
-                        "Are You Ready to End Your Workday?"
-                      </CustomText>{" "}
-                      if your work is completed. If not selected,{" "}
-                      <CustomText style={styles.boldText}>
-                        your attendance will not be marked.
-                      </CustomText>{" "}
-                      Please note.
-                    </CustomText>
-                  </View> */}
-                </>
-              )}
               {isPunchedIn ? (
-                <>
-                  {/* <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginHorizontal: 20,
-                      marginVertical: 10,
-                    }}
-                  >
-                    <TouchableOpacity
-                      onPress={toggleCheckbox}
-                      style={styles.checkbox}
-                    >
-                      {checked ? (
-                        <Icon
-                          name="checkmark"
-                          size={25}
-                          style={styles.checkbox}
-                          color={Colors.orangeColor}
-                        />
-                      ) : null}
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={toggleCheckbox}>
-                      <CustomText
-                        style={{
-                          color: Colors.blackColor,
-                          padding: 8,
-                          fontSize: 18,
-                        }}
-                      >
-                        Are You Ready to End Your Workday?
-                      </CustomText>
-                    </TouchableOpacity>
-                  </View> */}
-
-                  <TouchableOpacity
-                    // onPress={() => {
-                    //   if (checked) {
-                    //     Alert.alert(
-                    //       "Confirm Workday Completion",
-                    //       "Are you sure you want to end your workday? Once confirmed, your attendance will be marked based on your working hours.",
-                    //       [
-                    //         {
-                    //           text: "No, Keep Working",
-                    //           style: "cancel",
-                    //           onPress: () => {
-                    //             setChecked(false);
-                    //           },
-                    //         },
-                    //         {
-                    //           text: "Yes, End My Workday",
-                    //           onPress: () => {
-                    //             handlePunchOut();
-                    //           },
-                    //         },
-                    //       ]
-                    //     );
-                    //   } else {
-                    //     handlePunchOut();
-                    //   }
-                    // }}
-                     onPress={handlePunchOut}
-                  >
-                    <LinearGradient
-                      colors={[Colors.orangeColor, Colors.redColor]}
-                      style={styles.punchOutButton}
-                    >
-                      <CustomText style={styles.buttonText}>
-                        Check Out
-                      </CustomText>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </>
+                <TouchableOpacity onPress={handlePunchOut} disabled={!modeReady}>
+                  <LinearGradient colors={[Colors.orangeColor, Colors.redColor]} style={styles.punchOutButton}>
+                    <Text style={styles.buttonText}>Check Out</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
               ) : (
-                <>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (
-                        workFrom !== "Office" &&
-                        availableOptions.length > 1
-                      ) {
-                        LayoutAnimation.configureNext(
-                          LayoutAnimation.Presets.easeInEaseOut
-                        );
-                        setDropdownVisible(!dropdownVisible);
-                      }
-                    }}
-                    style={{ marginTop: 10 }}
-                  >
-                    <TextInput
-                      style={styles.input}
-                      pointerEvents="none"
-                      placeholderTextColor={Colors.blackColor}
-                      placeholder={workFrom || "Select Your Location"}
-                      selectedValue={workFrom}
-                      editable={false}
-                    />
-                  </TouchableOpacity>
+                <TouchableOpacity onPress={handlePunchIn} disabled={!modeReady}>
+                  <LinearGradient colors={[Colors.orangeColor, Colors.redColor]} style={styles.orangeButton}>
+                    <Text style={styles.buttonText}>Check In</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
 
-                  {dropdownVisible && (
-                    <View
-                      style={{
-                        shadowColor: Colors.blackColor,
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 5,
-                        borderColor: Colors.lightGreyColor,
-                        padding: 4,
-                        borderWidth: 1,
-                        borderRadius: 12,
-                        fontSize: 14,
-                        marginTop: 10,
-                        marginHorizontal: 15,
-                        backgroundColor: Colors.whiteColor,
-                      }}
-                    >
-                      {availableOptions.map((location, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          onPress={() => handleSelectLocation(location)}
-                          style={styles.dropdownItem}
-                        >
-                          <CustomText style={{ color: Colors.blackColor }}>
-                            {location.label}
-                          </CustomText>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                  {/* <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginHorizontal: 15,
-                      marginVertical: 5,
-                    }}
-                  >
-                    <TouchableOpacity
-                      onPress={toggleNightShift}
-                      style={styles.checkbox}
-                    >
-                      {isNightShift ? (
-                        <Icon
-                          name="checkmark"
-                          size={25}
-                          style={styles.checkbox}
-                          color={Colors.orangeColor}
-                        />
-                      ) : null}
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={toggleNightShift}>
-                      <CustomText
-                        style={{
-                          color: Colors.blackColor,
-                          padding: 8,
-                          fontSize: 18,
-                        }}
-                      >
-                        Are you starting your night shift?
-                      </CustomText>
-                    </TouchableOpacity>
-                  </View> */}
-                  <TouchableOpacity onPress={handlePunchIn}>
-                    <LinearGradient
-                      colors={[Colors.orangeColor, Colors.redColor]}
-                      style={styles.orangeButton}
-                    >
-                      <CustomText style={styles.buttonText}>
-                        Check In
-                      </CustomText>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </>
+              {!modeReady && (
+                <Text style={{ color: Colors.orangeColor, textAlign: "center", marginTop: 8 }}>
+                  Loading mode & location...
+                </Text>
               )}
             </View>
+
             {permissionGranted ? (
               <View style={styles.mapContainer}>
-                {region ? (
-                  <MapView
-                    style={styles.map}
-                    region={region.latitude || region.longitude ? region : null}
-                    showsUserLocation={true}
-                    showsMyLocationButton={true}
-                  >
-                    <Marker coordinate={officeLocation} pinColor="red" />
-                    <Circle
-                      center={officeLocation}
-                      radius={100}
-                      fillColor="rgba(255, 105, 0, 0.2)"
-                      strokeColor="rgba(255, 105, 0, 0.5)"
-                    />
-                  </MapView>
-                ) : (
-                  <>
-                    <CustomText
-                      style={{
-                        color: Colors.orangeColor,
-                        fontSize: 18,
-                        textAlign: "center",
-                        marginTop: 40,
-                      }}
-                    >
-                      Please turn on location to use this feature.
-                    </CustomText>
-                    <TouchableOpacity
-                      style={{
-                        marginTop: 20,
-                        paddingVertical: 10,
-                        paddingHorizontal: 20,
-                        marginHorizontal: 80,
-                        backgroundColor: Colors.orangeColor,
-                        borderRadius: 8,
-                      }}
-                      onPress={async () => await init()}
-                    >
-                      <CustomText
-                        style={{
-                          color: "white",
-                          fontSize: 16,
-                          textAlign: "center",
-                        }}
-                      >
-                        Retry
-                      </CustomText>
-                    </TouchableOpacity>
-                  </>
-                )}
+                <MapView
+                  style={styles.map}
+                  region={region?.latitude && region?.longitude ? region : undefined}
+                  showsUserLocation={false}
+                  showsMyLocationButton={true}
+                >
+                  {normalizeMode(mode) === "office" && officeLocation?.latitude && officeLocation?.longitude && (
+                    <>
+                      <Marker coordinate={officeLocation} pinColor="red" />
+                      <Circle
+                        center={officeLocation}
+                        radius={Number(geofenceRadius || DEFAULT_OFFICE.radius)}
+                        fillColor="rgba(255, 105, 0, 0.2)"
+                        strokeColor="rgba(255, 105, 0, 0.5)"
+                      />
+                    </>
+                  )}
+                </MapView>
               </View>
             ) : (
-              <CustomText
-                style={{
-                  color: Colors.orangeColor,
-                  fontSize: 18,
-                  textAlign: "center",
-                  marginTop: 40,
-                }}
-              >
+              <Text style={{ color: Colors.orangeColor, fontSize: 18, textAlign: "center", marginTop: 40 }}>
                 Location permission is required to use this feature.
-              </CustomText>
+              </Text>
             )}
           </View>
         )}
@@ -952,43 +619,20 @@ const MAP = ({ navigation, route }) => {
     </BackgroundWrapper>
   );
 };
+
 export const getCurrentDateTime = () => {
   const now = new Date();
   const day = String(now.getDate()).padStart(2, "0");
-  const month = String(now.getMonth() + 1).padStart(2, "0"); // Months are 0-based
+  const month = String(now.getMonth() + 1).padStart(2, "0");
   const year = now.getFullYear();
   const hours = String(now.getHours()).padStart(2, "0");
   const minutes = String(now.getMinutes()).padStart(2, "0");
   const seconds = String(now.getSeconds()).padStart(2, "0");
-
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
+
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  noteContainer: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-
-    padding: 5,
-    borderRadius: 6,
-    marginTop: 10,
-  },
-  noteText: {
-    flex: 1,
-    color: "#333",
-    marginLeft: 8,
-    fontSize: 12,
-  },
-  boldText: {
-    fontFamily: "Nunito-ExtraBold",
-    color: Colors.orangeColor,
-  },
-  buttonRowContainer: {
-    flexDirection: "column",
-    justifyContent: "space-between",
-    width: "80%",
-    marginLeft: "14%",
-  },
   orangeButton: {
     marginTop: 5,
     height: 50,
@@ -1000,7 +644,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   punchOutButton: {
-    // width: "100%",
     height: 50,
     paddingVertical: 10,
     paddingHorizontal: 15,
@@ -1028,65 +671,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   map: { width: "100%", height: "100%" },
-  checkbox: {
-    width: 25,
-    height: 25,
-    borderWidth: 2,
-    borderColor: Colors.orangeColor,
-    alignItems: "center",
-    justifyContent: "center",
-    // marginTop: 10,
-    borderRadius: 24,
-    // padding: 4,
-  },
-  loader: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  pickerContainer: {
-    borderRadius: 12,
-    borderColor: Colors.lightGreyColor,
-    borderWidth: 1,
-    marginHorizontal: 15,
-    marginVertical: 5,
-    // overflow: "hidden",
-    backgroundColor: Colors.whiteColor,
-  },
-  picker: {
-    height: 50,
-    width: "100%",
-    fontFamily: Strings.fontFamilyConstant,
-    color: Colors.greyishBlueColor,
-  },
-  dropdownItem: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderColor,
-  },
-  input: {
-    height: 50,
-    padding: 4,
-    paddingLeft: 10,
-    fontFamily: Strings.fontFamilyConstant,
-    shadowColor: Colors.blackColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    borderColor: Colors.lightGreyColor,
-    borderWidth: 1,
-    borderRadius: 12,
-    marginVertical: 5,
-    marginHorizontal: 15,
-    fontSize: 14,
-    color: Colors.blackColor,
-    backgroundColor: Colors.whiteColor,
-  },
+  backButtonOUT: { marginLeft: 10, marginTop: 5, marginBottom: 10 },
 });
 
 export default MAP;

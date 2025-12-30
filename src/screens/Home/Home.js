@@ -1,4 +1,9 @@
-import React, { useState, useEffect , useRef } from "react";
+// ✅ Home.js — Removed previous page/location dependency.
+// ✅ Only change: Home no longer depends on route params/mode.
+// ✅ Flow: Home -> ShowCamera -> MAP (MAP will decide mode from storage)
+// ✅ NEW: Show last punch location (stored by MAP after IN/OUT) WITHOUT changing other flow
+
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -13,12 +18,7 @@ import { handleErrorResponse, request } from "../../api/auth/auth";
 import Icon from "react-native-vector-icons/Ionicons";
 import IconMaterial from "react-native-vector-icons/Fontisto";
 import FontAwesomeIcon from "react-native-vector-icons/FontAwesome";
-import {
-  CommonActions,
-  useIsFocused,
-  useNavigation,
-  useRoute,
-} from "@react-navigation/native";
+import { CommonActions, useIsFocused, useNavigation } from "@react-navigation/native";
 import TopBar from "../../component/TopBar/TopBar";
 import LinearGradient from "react-native-linear-gradient";
 import { ScrollView } from "react-native-gesture-handler";
@@ -31,24 +31,23 @@ import BackgroundWrapper from "../../Background";
 import { getItemFromStorage, setItemToStorage } from "../../utils/asyncStorage";
 import { Strings } from "../../constant/string_constant";
 import Timer from "../../component/Timer/Timer";
-import { MULTARK_URL } from "../../constant/app_url";
 import {
   resetTimer,
   startTimer,
   stopTimer,
 } from "../../component/Timer/logDurationTimer";
 import { showToast } from "../../constant/toast";
-import { getCurrentLocation } from "../../api/requestLocationPermission/requestLocationPermission";
 import { OneSignal } from "react-native-onesignal";
-import { getCurrentDateTime } from "../Map/Map";
 import axios from "axios";
-const logoutTimer = null;
 
+// ✅ same key used in MAP.js
+const LAST_PUNCH_KEY = "last_punch_location";
 
+// ✅ FIX: logoutTimer must be let (you clear it later)
+let logoutTimer = null;
 
 const Home = () => {
   const navigation = useNavigation();
-  const route = useRoute();
   const [punchInTime, setPunchInTime] = useState("- -");
   const [punchOutTime, setPunchOutTime] = useState("- -");
   const [punchInDate, setPunchInDate] = useState("- -");
@@ -63,40 +62,62 @@ const Home = () => {
   const [companyName, setcompanyName] = useState("");
   const [isManuFactuer, setIsManuFacturer] = useState(false);
   const isFocused = useIsFocused();
-  // useEffect(() => {
-  //   fetchUserData();
-  //   scheduleLogoutBeforeMidnight();
-  //   checkSubcription();
-  // }, []);
 
-
-
-// Step 2a: Run initial fetch and subscription check
-useEffect(() => {
-  const init = async () => {
-    await fetchUserData();
-    await checkSubcription();
-  };
-  init();
-}, []);
-
-// Step 2b: Run employee-dependent tasks after employeeId is set
-useEffect(() => {
-  if (employeeId) {
-    checkPunchedIn(); // safe now
-    scheduleLogoutBeforeMidnight(); // safe now
-  }
-}, [employeeId]);
-
+  // ✅ optional display
+  const [lastPunchLocationText, setLastPunchLocationText] = useState("");
 
   useEffect(() => {
-  return () => {
-    if (logoutTimer) {
-      clearTimeout(logoutTimer);
-      logoutTimer = null;
+    const init = async () => {
+      await fetchUserData();
+      await checkSubcription();
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (employeeId) {
+      checkPunchedIn();
+      scheduleLogoutBeforeMidnight();
+    }
+  }, [employeeId]);
+
+  useEffect(() => {
+    return () => {
+      if (logoutTimer) {
+        clearTimeout(logoutTimer);
+        logoutTimer = null;
+      }
+    };
+  }, []);
+
+  // ✅ pull last location stored by MAP after IN/OUT (always latest)
+  const loadLastPunchLocation = async () => {
+    try {
+      const raw = await getItemFromStorage(LAST_PUNCH_KEY);
+      if (!raw) {
+        setLastPunchLocationText("");
+        return;
+      }
+      const obj = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const lat = obj?.latitude;
+      const lng = obj?.longitude;
+      const type = obj?.log_type || "";
+      const mode = obj?.mode || "";
+      if (typeof lat === "number" && typeof lng === "number") {
+        setLastPunchLocationText(
+          `${type ? type + " • " : ""}${mode ? mode + " • " : ""}${lat.toFixed(5)}, ${lng.toFixed(5)}`
+        );
+      } else {
+        setLastPunchLocationText("");
+      }
+    } catch (e) {
+      setLastPunchLocationText("");
     }
   };
-}, []);
+
+  useEffect(() => {
+    if (isFocused) loadLastPunchLocation();
+  }, [isFocused]);
 
   const checkSubcription = async () => {
     try {
@@ -112,32 +133,22 @@ useEffect(() => {
       if (response.data && response.data.data) {
         const { data } = response.data;
 
-        // Parse the date_of_subscription
         const subscriptionDate = new Date(data.valid_till);
         const currentDate = new Date();
 
-        const date1 = new Date(currentDate);
-        const date2 = new Date(subscriptionDate);
-
-        // Extract the date part (YYYY-MM-DD)
-        const onlyDate1 = date1.toISOString().split("T")[0];
-        const onlyDate2 = date2.toISOString().split("T")[0];
+        const onlyDate1 = new Date(currentDate).toISOString().split("T")[0];
+        const onlyDate2 = new Date(subscriptionDate).toISOString().split("T")[0];
 
         if (onlyDate1 <= onlyDate2) {
           logInfo("Subscription is valid.");
-          await setItemToStorage(
-            Strings.companyLogo,
-            data?.custom_company_logo
-          );
+          await setItemToStorage(Strings.companyLogo, data?.custom_company_logo);
           await setItemToStorage(Strings.baseURL, data.customer_url);
         } else {
           Alert.alert(
             "Subscription Error",
             "Your subscription is invalid or expired.\n\nPlease contact support:\nEmail: support@multark.com\nWebsite: https://erp.multark.com/about",
             [],
-            {
-              cancelable: false,
-            }
+            { cancelable: false }
           );
           logInfo("Subscription is not yet valid.");
         }
@@ -148,236 +159,214 @@ useEffect(() => {
       logError("Error submitting company:", error);
     }
   };
+
   const scheduleLogoutBeforeMidnight = async () => {
     const baseURL = await getItemFromStorage(Strings.baseURL);
     if (baseURL !== "http://vizagsteel.multark.com") {
-//       if (employeeId) {
-//   await checkPunchedIn();
-// }
-
       const now = new Date();
       const logoutTime = new Date();
       logoutTime.setHours(23, 59);
       let timeUntilLogout = logoutTime.getTime() - now.getTime();
-      if (timeUntilLogout < 0) {
-        timeUntilLogout += 24 * 60 * 60 * 1000;
+      if (timeUntilLogout < 0) timeUntilLogout += 24 * 60 * 60 * 1000;
+
+      if (logoutTimer) {
+        clearTimeout(logoutTimer);
+        logoutTimer = null;
       }
-//       logoutTimer = setTimeout(() => {
-//   logoutUser();
-// }, timeUntilLogout);
-
-if (logoutTimer) {
-  clearTimeout(logoutTimer);
-  logoutTimer = null;
-}
-
-
     }
   };
+
   const logoutUser = async () => {
     const baseURL = await getItemFromStorage(Strings.baseURL);
     if (baseURL !== "http://vizagsteel.multark.com") {
       if (buttonText === "CHECK-OUT") {
-        // await handlePunchOut();
         await checkPunchedIn();
       }
       showToast("Logging out user", false);
+      await setItemToStorage(Strings.offceCoordinate, "");
+      await setItemToStorage(Strings.offceGeoFenceRadius, "");
+      await setItemToStorage("work_mode_selected", "");
+      await setItemToStorage(LAST_PUNCH_KEY, ""); // ✅ clear last stored location
+
       await setItemToStorage(Strings.userCookie, null);
-await setItemToStorage(Strings.isLoggedIn, "false");
+      await setItemToStorage(Strings.isLoggedIn, "false");
 
       navigation.dispatch(
         CommonActions.reset({ index: 0, routes: [{ name: "Login" }] })
       );
     }
   };
-  async function fetchLogType(logType) {
-    const currentDate = new Date().toISOString().split("T")[0];
-    const response = await request(
-      "GET",
-      `/api/resource/Employee Checkin?filters=${encodeURIComponent(
-        JSON.stringify([
-          ["employee", "=", employeeId],
-          ["log_type", "=", logType],
-          // ["time", ">=", `${currentDate} 00:00:00`],
-          // ["time", "<=", `${currentDate} 23:59:59`],
-        ])
-      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
-    );
-    return response;
-  }
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const toRad = (value) => (value * Math.PI) / 180;
-    const R = 6371000;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+
+  const getIndianTimeFromDateString = (dateString) => {
+    const date = new Date(dateString);
+    const options = { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true };
+    let indianTime = date.toLocaleString("en-IN", { ...options }).toUpperCase();
+    indianTime = indianTime.replace(/^(\d):/, "0$1:");
+    return indianTime;
   };
-  const handlePunchOut = async () => {
-    try {
-      const locationData = await getCurrentLocation(true);
-      if (!locationData) {
-        showToast("Failed to retrieve location. Please try again.");
-        return;
+
+  const getIndianDateFromDateString = (dateString) => {
+    const date = new Date(dateString);
+    const options = { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Kolkata" };
+    let indianTime = date.toLocaleString("en-IN", { ...options }).toUpperCase();
+    indianTime = indianTime.replace(/^(\d):/, "0$1:");
+    return indianTime;
+  };
+
+  useEffect(() => {
+    const backAction = () => {
+      if (navigation.canGoBack()) navigation.goBack();
+      else {
+        Alert.alert("Confirm Exit", "Are you sure you want to exit the app?", [
+          { text: "Cancel", onPress: () => null, style: "cancel" },
+          { text: "Yes", onPress: () => BackHandler.exitApp() },
+        ]);
       }
-      const offcieLocation = await getItemFromStorage(Strings.offceCoordinate);
-      const geoFenceRadius = await getItemFromStorage(
-        Strings.offceGeoFenceRadius
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
+
+  useEffect(() => {
+    if (employeeId && isFocused) {
+      checkPunchedIn();
+      loadLastPunchLocation();
+    }
+  }, [employeeId, isFocused]);
+
+  const checkPunchedIn = async () => {
+    const isLoggedIn = await getItemFromStorage(Strings.isLoggedIn);
+    if (isLoggedIn !== "true") return;
+
+    try {
+      const logTypeIn = await request(
+        "GET",
+        `/api/resource/Employee Checkin?filters=${encodeURIComponent(
+          JSON.stringify([["employee", "=", employeeId], ["log_type", "=", "IN"]])
+        )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
       );
-      const { latitude, longitude } = locationData;
-      const distance = calculateDistance(
-        offcieLocation.latitude,
-        offcieLocation.longitude,
-        latitude,
-        longitude
+
+      const logTypeOut = await request(
+        "GET",
+        `/api/resource/Employee Checkin?filters=${encodeURIComponent(
+          JSON.stringify([["employee", "=", employeeId], ["log_type", "=", "OUT"]])
+        )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time"]))}&order_by=${encodeURIComponent("time desc")}`
       );
-      const logTypeIn = await fetchLogType("IN");
-      const totalHours = await getItemFromStorage(Strings.totalHours);
-      if (logTypeIn.data.data[0].work_mode == "Office") {
-        if (distance <= geoFenceRadius) {
-          const response = await request(
-            "POST",
-            `/api/resource/Employee Checkin`,
-            JSON.stringify({
-              employee: employeeId,
-              log_type: "OUT",
-              time: getCurrentDateTime(),
-              custom_hours: totalHours,
-              work_mode: logTypeIn.data.data[0].work_mode,
-              latitude: latitude,
-              longitude: longitude,
-            })
-          );
-          if (response.statusCode == 200) {
-            await markAttendance({
-              employee: employeeId,
-              status: getAttendanceStatus(totalHours),
-              docstatus: 1,
-              attendance_date: new Date().toISOString().split("T")[0],
-              company: companyName,
-            });
-            const punchOutTime = new Date().toLocaleTimeString();
-            stopTimer();
-            showToast("Check Out successful!", false);
-          } else {
-            showToast("Punch Out failed. Please try again.");
-          }
+
+      let punchInTime = "- -";
+      let punchOutTime = "- -";
+      let punchInDate = "- -";
+      let punchOutDate = "- -";
+
+      if (logTypeIn.data?.data?.length > 0) {
+        const inLog = logTypeIn.data.data[0];
+        punchInTime = getIndianTimeFromDateString(inLog.time);
+        punchInDate = getIndianDateFromDateString(inLog.time);
+
+        let wm = inLog.work_mode || "";
+        if (!wm) {
+          const saved = await getItemFromStorage("work_mode_selected");
+          wm =
+            saved === "office"
+              ? "Office"
+              : saved === "marketing"
+              ? "Marketing"
+              : saved === "out_duty"
+              ? "Out Duty"
+              : "NA";
+        }
+        setWorkMode(wm);
+
+        setPunchInTime(punchInTime);
+        setPunchInDate(punchInDate);
+      } else {
+        setPunchInTime("- -");
+        setPunchInDate("- -");
+        setWorkMode("NA");
+      }
+
+      if (logTypeOut.data?.data?.length > 0 && logTypeIn.data?.data?.length > 0) {
+        const outLog = logTypeOut.data.data[0];
+        const inLog = logTypeIn.data.data[0];
+        if (new Date(outLog.time) > new Date(inLog.time)) {
+          punchOutTime = getIndianTimeFromDateString(outLog.time);
+          punchOutDate = getIndianDateFromDateString(outLog.time);
+        }
+        setPunchOutTime(punchOutTime);
+        setPunchOutDate(punchOutDate);
+      } else {
+        setPunchOutTime("- -");
+        setPunchOutDate("- -");
+      }
+
+      const combinedLogs = [
+        ...(logTypeIn.data?.data || []),
+        ...(logTypeOut.data?.data || []),
+      ].sort((a, b) => new Date(b.time) - new Date(a.time));
+
+      if (combinedLogs.length > 0) {
+        const latestLog = combinedLogs[0];
+        if (latestLog.log_type === "IN") {
+          setbuttonText("CHECK-OUT");
+          startTimer();
         } else {
-          showToast("Error: You are currently outside the office location!");
+          setbuttonText("CHECK-IN");
+          stopTimer();
         }
       } else {
-        const response = await request(
-          "POST",
-          `/api/resource/Employee Checkin`,
-          JSON.stringify({
-            employee: employeeId,
-            log_type: "OUT",
-            custom_hours: totalHours,
-            work_mode: logTypeIn.data.data[0].work_mode,
-            latitude: latitude,
-            longitude: longitude,
-          })
-        );
-        if (response.statusCode == 200) {
-          await markAttendance({
-            employee: employeeId,
-            status: getAttendanceStatus(totalHours),
-            docstatus: 1,
-            attendance_date: new Date().toISOString().split("T")[0],
-            company: companyName,
-          });
-          const punchOutTime = new Date().toLocaleTimeString();
-          await stopTimer();
-          showToast("Check Out successful!", false);
-        } else {
-          showToast("Punch Out failed. Please try again.");
-        }
+        setbuttonText("CHECK-IN");
+        stopTimer();
       }
     } catch (error) {
-      // await stopTimer();
-      logError("error", error);
-      showToast(`Failed to process punch out. Please try again. ${error}`);
+      logError("Error fetching check-in data:", error);
     }
   };
 
-  const markAttendance = async (data) => {
-    try {
-      const response = await request(
-        "POST",
-        `/api/resource/Attendance`,
-        JSON.stringify(data)
-      );
-      if (response?.error) {
-        showToast(
-          `Failed to mark attendance ${await handleErrorResponse(response.error)}`
-        );
-      }
-    } catch (error) {
-      logError(`Failed to mark attendance `, error);
-    }
-  };
-  const getAttendanceStatus = (totalHours) => {
-    const [hours] = totalHours.split(":").map(Number);
-    if (hours < 4) {
-      return "Absent";
-    } else if (hours >= 4 && hours <= 7) {
-      return "Half Day";
-    } else {
-      return "Present";
-    }
+  // ✅ CHANGE: No route/mode logic here. Always go camera -> map.
+  const handlePunchInRedirect = async () => {
+    navigation.navigate("ShowCamera");
   };
 
   const isCookieExpired = (cookie) => {
     if (!cookie) return true;
-
     const match = cookie.match(/Expires=([^;]+)/);
     if (!match) return true;
-
     const expiryDate = new Date(match[1]);
     const formattedDate = new Date(expiryDate).toISOString().split("T")[0];
     const currentDate = new Date().toISOString().split("T")[0];
     return currentDate >= formattedDate;
   };
+
   const fetchUserData = async () => {
     try {
-    const session = await getItemFromStorage(Strings.userCookie);
+      const session = await getItemFromStorage(Strings.userCookie);
 
-if (!session || isCookieExpired(session)) {
-  showToast("Session expired. Please log in again.");
-  await setItemToStorage(Strings.userCookie, "");
-  await setItemToStorage(Strings.isLoggedIn, "false");
-  navigation.dispatch(
-    CommonActions.reset({ index: 0, routes: [{ name: "Login" }] })
-  );
-  return; // Stop further execution if session is invalid
-}
+      if (!session || isCookieExpired(session)) {
+        showToast("Session expired. Please log in again.");
+        await setItemToStorage(Strings.userCookie, "");
+        await setItemToStorage(Strings.isLoggedIn, "false");
+        navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "Login" }] }));
+        return;
+      }
 
-const baseURL = await getItemFromStorage(Strings.baseURL);
-setBaseUrl(baseURL);
+      const baseURL = await getItemFromStorage(Strings.baseURL);
+      setBaseUrl(baseURL);
 
-const userName = await getItemFromStorage(Strings.userName);
-const userResponse = await request("GET", `/api/resource/User/${userName}`);
-
+      const userName = await getItemFromStorage(Strings.userName);
+      const userResponse = await request("GET", `/api/resource/User/${userName}`);
 
       if (!userResponse || isCookieExpired(session)) {
         showToast("Session is expired. Please log in again.");
         await setItemToStorage(Strings.userCookie, "");
         await setItemToStorage(Strings.isLoggedIn, "false");
-        navigation.dispatch(
-          CommonActions.reset({ index: 0, routes: [{ name: "Login" }] })
-        );
+        navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "Login" }] }));
       } else {
         if (userName && session) {
           var isProductionManager = userResponse.data.data.roles.some(
             (role) =>
-              role.role === "Manufacturing User" ||
-              role.role === "Manufacturing Manager"
+              role.role === "Manufacturing User" || role.role === "Manufacturing Manager"
           );
 
           setIsManuFacturer(isProductionManager);
@@ -391,18 +380,13 @@ const userResponse = await request("GET", `/api/resource/User/${userName}`);
               "GET",
               `/api/resource/Employee/${employeeResponse.data.data[0].name}`
             );
-            setDesignation(
-              detailedEmployeeResponse.data?.data?.designation ?? ""
-            );
+            setDesignation(detailedEmployeeResponse.data?.data?.designation ?? "");
             setUserData(userResponse.data.data);
             const employee = employeeResponse.data.data[0];
             setEmployeeId(employee.name);
             setcompanyName(detailedEmployeeResponse.data?.data?.company);
           } else {
-            logError(
-              "Employee not found for the given user",
-              employeeResponse.data.data[0]
-            );
+            logError("Employee not found for the given user", employeeResponse.data.data[0]);
             showToast("Employee not found for the given user");
           }
         } else {
@@ -414,251 +398,13 @@ const userResponse = await request("GET", `/api/resource/User/${userName}`);
     }
   };
 
-  const getIndianTimeFromDateString = (dateString) => {
-    const date = new Date(dateString);
-    const options = {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    };
-    let indianTime = date.toLocaleString("en-IN", { ...options }).toUpperCase();
-    indianTime = indianTime.replace(/^(\d):/, "0$1:");
-    return indianTime;
-  };
-  const getIndianDateFromDateString = (dateString) => {
-    const date = new Date(dateString);
-    const options = {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-
-      timeZone: "Asia/Kolkata",
-    };
-    let indianTime = date.toLocaleString("en-IN", { ...options }).toUpperCase();
-    indianTime = indianTime.replace(/^(\d):/, "0$1:");
-    return indianTime;
-  };
-  useEffect(() => {
-    const backAction = () => {
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-      } else {
-        Alert.alert("Confirm Exit", "Are you sure you want to exit the app?", [
-          { text: "Cancel", onPress: () => null, style: "cancel" },
-          { text: "Yes", onPress: () => BackHandler.exitApp() },
-        ]);
-      }
-      return true;
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      backAction
-    );
-
-    return () => backHandler.remove();
-  }, [navigation]);
-  useEffect(() => {
-  if (employeeId && isFocused) {
-    checkPunchedIn();
-  }
-}, [employeeId, isFocused]);
-
-
-//   const checkPunchedIn = async () => {
-// const isLoggedIn = await getItemFromStorage(Strings.isLoggedIn);
-//   if (isLoggedIn !== "true") return;
-
-//     const currentDate = new Date().toISOString().split("T")[0];
-//     try {
-//       const logTypeIn = await request(
-//         "GET",
-//         `/api/resource/Employee Checkin?filters=${encodeURIComponent(
-//           JSON.stringify([
-//             ["employee", "=", employeeId],
-//             ["log_type", "=", "IN"],
-//             // ["time", ">=", `${currentDate} 00:00:00`],
-//             // ["time", "<=", `${currentDate} 23:59:59`],
-//           ])
-//         )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
-//       );
-//       if (logTypeIn.data?.data?.length > 0) {
-//         const punchInTime = getIndianTimeFromDateString(
-//           logTypeIn.data.data[0].time
-//         );
-//         const pucnhInDate = getIndianDateFromDateString(
-//           logTypeIn.data.data[0].time
-//         );
-//         await setWorkMode(logTypeIn.data.data[0].work_mode);
-//         await setPunchInTime(punchInTime);
-//         await setPunchInDate(pucnhInDate);
-//       } else {
-//         await setPunchInTime("- -");
-//         await setPunchInDate("- -");
-//       }
-//       const logTypeOut = await request(
-//         "GET",
-//         `/api/resource/Employee Checkin?filters=${encodeURIComponent(
-//           JSON.stringify([
-//             ["employee", "=", employeeId],
-//             ["log_type", "=", "OUT"],
-//             // ["time", ">=", `${currentDate} 00:00:00`],
-//             // ["time", "<=", `${currentDate} 23:59:59`],
-//           ])
-//         )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time"]))}&order_by=${encodeURIComponent("time desc")}`
-//       );
-//       if (logTypeOut.data?.data?.length > 0) {
-//         const punchOutTime = getIndianTimeFromDateString(
-//           logTypeOut.data.data[0].time
-//         );
-
-//         const punchInTime = getIndianTimeFromDateString(
-//           logTypeIn.data.data[0].time
-//         );
-//         const pucnhOutDate = getIndianDateFromDateString(
-//           logTypeOut.data.data[0].time
-//         );
-//         if (
-//           new Date(logTypeOut.data.data[0].time) >
-//           new Date(logTypeIn.data.data[0].time)
-//         ) {
-//           await setPunchOutTime(punchOutTime);
-//           await setPunchOutDate(pucnhOutDate);
-//         } else {
-//           await setPunchOutTime("- -");
-//           await setPunchOutDate("- -");
-//         }
-//         const combinedLogs = [
-//           ...logTypeIn.data.data,
-//           ...logTypeOut.data.data,
-//         ].sort((a, b) => new Date(b.time) - new Date(a.time));
-//         if (combinedLogs.length > 0) {
-//           const latestLog = combinedLogs[0];
-//           if (latestLog.log_type === "IN") {
-//             setbuttonText("CHECK-OUT");
-//             startTimer();
-//           } else if (latestLog.log_type === "OUT") {
-//             setbuttonText("CHECK-IN");
-//             stopTimer();
-//           }
-//         } else {
-//           setbuttonText("CHECK-IN");
-//           stopTimer();
-//         }
-//       } else {
-//         if (punchOutTime === "- -" && punchInTime === "- -") {
-//           setbuttonText("CHECK-IN");
-//           stopTimer();
-//         } else {
-//           setbuttonText("CHECK-OUT");
-//           startTimer();
-//         }
-//       }
-//     } catch (error) {
-//       logError("Error fetching check-in data:", error);
-//     }
-//   };
-
-
-const checkPunchedIn = async () => {
-  const isLoggedIn = await getItemFromStorage(Strings.isLoggedIn);
-  if (isLoggedIn !== "true") return;
-
-  const currentDate = new Date().toISOString().split("T")[0];
-
-  try {
-    const logTypeIn = await request(
-      "GET",
-      `/api/resource/Employee Checkin?filters=${encodeURIComponent(
-        JSON.stringify([["employee", "=", employeeId], ["log_type", "=", "IN"]])
-      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time", "work_mode"]))}&order_by=${encodeURIComponent("time desc")}`
-    );
-
-    const logTypeOut = await request(
-      "GET",
-      `/api/resource/Employee Checkin?filters=${encodeURIComponent(
-        JSON.stringify([["employee", "=", employeeId], ["log_type", "=", "OUT"]])
-      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time"]))}&order_by=${encodeURIComponent("time desc")}`
-    );
-
-    // Safe defaults
-    let punchInTime = "- -";
-    let punchOutTime = "- -";
-    let punchInDate = "- -";
-    let punchOutDate = "- -";
-    let workMode = "";
-
-    // Check if IN logs exist
-    if (logTypeIn.data?.data?.length > 0) {
-      const inLog = logTypeIn.data.data[0];
-      punchInTime = getIndianTimeFromDateString(inLog.time);
-      punchInDate = getIndianDateFromDateString(inLog.time);
-      workMode = inLog.work_mode || "";
-      setWorkMode(workMode);
-      setPunchInTime(punchInTime);
-      setPunchInDate(punchInDate);
-    } else {
-      setPunchInTime("- -");
-      setPunchInDate("- -");
-    }
-
-    // Check if OUT logs exist
-    if (logTypeOut.data?.data?.length > 0 && logTypeIn.data?.data?.length > 0) {
-      const outLog = logTypeOut.data.data[0];
-      const inLog = logTypeIn.data.data[0];
-
-      if (new Date(outLog.time) > new Date(inLog.time)) {
-        punchOutTime = getIndianTimeFromDateString(outLog.time);
-        punchOutDate = getIndianDateFromDateString(outLog.time);
-      }
-      setPunchOutTime(punchOutTime);
-      setPunchOutDate(punchOutDate);
-    } else {
-      setPunchOutTime("- -");
-      setPunchOutDate("- -");
-    }
-
-    // Determine button text
-    const combinedLogs = [
-      ...(logTypeIn.data?.data || []),
-      ...(logTypeOut.data?.data || []),
-    ].sort((a, b) => new Date(b.time) - new Date(a.time));
-
-    if (combinedLogs.length > 0) {
-      const latestLog = combinedLogs[0];
-      if (latestLog.log_type === "IN") {
-        setbuttonText("CHECK-OUT");
-        startTimer();
-      } else {
-        setbuttonText("CHECK-IN");
-        stopTimer();
-      }
-    } else {
-      setbuttonText("CHECK-IN");
-      stopTimer();
-    }
-  } catch (error) {
-    logError("Error fetching check-in data:", error);
-  }
-};
-
-
-
-
-  const handlePunchInRedirect = async () => {
-    if (buttonText == "CHECK-IN" || buttonText == "CHECK-OUT") {
-      navigation.navigate("ShowCamera");
-    } else {
-      navigation.navigate("MAP");
-    }
-  };
   const formattedDate = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     day: "2-digit",
     month: "long",
     year: "numeric",
   }).format(new Date());
+
   return (
     <BackgroundWrapper imageSource={images.mainBackground}>
       <View style={styles.container}>
@@ -676,12 +422,9 @@ const checkPunchedIn = async () => {
                     color: Colors.blackColor,
                   }}
                 >
-                  👋 Hello,
-                  {" " +
-                    (userData?.first_name ?? "") +
-                    " " +
-                    (userData?.last_name ?? "")}
+                  👋 Hello,{" " + (userData?.first_name ?? "") + " " + (userData?.last_name ?? "")}
                 </CustomText>
+
                 {designation && (
                   <CustomText
                     style={{
@@ -705,70 +448,39 @@ const checkPunchedIn = async () => {
                 >
                   {formattedDate}
                 </CustomText>
+
                 <View>
-                  <Timer
-                    punchInTime={punchInTime}
-                    punchOutTime={punchOutTime}
-                  />
+                  <Timer punchInTime={punchInTime} punchOutTime={punchOutTime} />
                 </View>
-                <View
-                  style={[
-                    styles.locationStatus,
-                    { paddingTop: 15, paddingLeft: 20 },
-                  ]}
-                >
+
+                <View style={[styles.locationStatus, { paddingTop: 15, paddingLeft: 20 }]}>
                   <View>
                     <Image source={images.locationIcon} />
                   </View>
                   <View>
-                    <CustomText
-                      style={[styles.punchLocation, { paddingTop: 3 }]}
-                    >
+                    <CustomText style={[styles.punchLocation, { paddingTop: 3 }]}>
                       {workMode}
                     </CustomText>
-                  </View>
-                </View>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    margin: 10,
-                  }}
-                >
-                  <View
-                    style={{
-                      flexDirection: "column",
-                      marginTop: 10,
-                      marginLeft: 20,
-                      marginRight: 20,
-                    }}
-                  >
-                    <CustomText style={styles.punchText}>Check In</CustomText>
-                    {/* {punchInDate && (
-                      <CustomText style={styles.punchTime}>
-                        {punchInDate}
-                      </CustomText>
-                    )} */}
-                    {punchInTime && (
-                      <CustomText style={styles.punchTime}>
-                        {punchInTime}
+                    {!!lastPunchLocationText && (
+                      <CustomText style={{ marginTop: 4, color: Colors.lightGreyColor, fontSize: 12 }}>
+                        {lastPunchLocationText}
                       </CustomText>
                     )}
                   </View>
+                </View>
+
+                <View style={{ flexDirection: "row", justifyContent: "space-between", margin: 10 }}>
+                  <View style={{ flexDirection: "column", marginTop: 10, marginLeft: 20, marginRight: 20 }}>
+                    <CustomText style={styles.punchText}>Check In</CustomText>
+                    {punchInTime && <CustomText style={styles.punchTime}>{punchInTime}</CustomText>}
+                  </View>
+
                   <View style={{ flexDirection: "column", margin: 10 }}>
                     <CustomText style={styles.punchText}>Check Out</CustomText>
-                    {/* {punchOutDate && (
-                      <CustomText style={styles.punchTime}>
-                        {punchOutDate}
-                      </CustomText>
-                    )} */}
-                    {punchOutTime && (
-                      <CustomText style={styles.punchTime}>
-                        {punchOutTime}
-                      </CustomText>
-                    )}
+                    {punchOutTime && <CustomText style={styles.punchTime}>{punchOutTime}</CustomText>}
                   </View>
                 </View>
+
                 <TouchableOpacity
                   style={{
                     alignItems: "center",
@@ -778,9 +490,7 @@ const checkPunchedIn = async () => {
                     marginLeft: 20,
                     marginRight: 20,
                   }}
-                  // onPress={() => navigation.navigate("MAP")}
-                    onPress={handlePunchInRedirect}
-
+                  onPress={handlePunchInRedirect}
                 >
                   <LinearGradient
                     colors={[Colors.orangeColor, Colors.redColor]}
@@ -813,202 +523,63 @@ const checkPunchedIn = async () => {
 
               <View style={styles.favCard}>
                 <View style={styles.favStatus}>
-                  <TouchableOpacity
-                    style={styles.favSubCard}
-                    onPress={() => navigation.navigate("Attendance")}
-                  >
+                  <TouchableOpacity style={styles.favSubCard} onPress={() => navigation.navigate("Attendance")}>
                     <View style={styles.favStatusText}>
-                      <CustomText style={styles.punchText}>
-                        Check In/Out
-                      </CustomText>
+                      <CustomText style={styles.punchText}>Check In/Out</CustomText>
                     </View>
                     <View style={styles.favStatusIcon}>
-                      <Icon
-                        name="time-outline"
-                        size={45}
-                        color={Colors.orangeColor}
-                      />
+                      <Icon name="time-outline" size={45} color={Colors.orangeColor} />
                     </View>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.favSubCard]}
-                    onPress={() => navigation.navigate("ViewAttendance")}
-                  >
+
+                  <TouchableOpacity style={[styles.favSubCard]} onPress={() => navigation.navigate("ViewAttendance")}>
                     <View style={styles.favStatusText}>
-                      <CustomText style={styles.punchText}>
-                        Attendance Record
-                      </CustomText>
+                      <CustomText style={styles.punchText}>Attendance Record</CustomText>
                     </View>
                     <View style={styles.favStatusIcon}>
-                      <FontAwesomeIcon
-                        name="calendar-check-o"
-                        size={45}
-                        color={Colors.orangeColor}
-                      />
+                      <FontAwesomeIcon name="calendar-check-o" size={45} color={Colors.orangeColor} />
                     </View>
                   </TouchableOpacity>
                 </View>
 
-                <View
-                  style={[
-                    styles.favStatus,
-                    { width: !isManuFactuer ? "50%" : null },
-                  ]}
-                >
+                <View style={[styles.favStatus, { width: !isManuFactuer ? "50%" : null }]}>
                   <TouchableOpacity
-                    style={[
-                      styles.favSubCard,
-                      { width: "45%", marginBottom: 20 },
-                    ]}
+                    style={[styles.favSubCard, { width: "45%", marginBottom: 20 }]}
                     onPress={() => navigation.navigate("HolidayList")}
                   >
                     <View style={styles.favStatusText}>
-                      <CustomText style={styles.punchText}>
-                        Holiday's
-                      </CustomText>
+                      <CustomText style={styles.punchText}>Holiday's</CustomText>
                     </View>
                     <View style={styles.favStatusIcon}>
-                      <IconMaterial
-                        name="holiday-village"
-                        size={45}
-                        color={Colors.orangeColor}
-                      />
+                      <IconMaterial name="holiday-village" size={45} color={Colors.orangeColor} />
                     </View>
                   </TouchableOpacity>
+
                   {isManuFactuer && (
-                    <>
-                      <TouchableOpacity
-                        style={[styles.favSubCard]}
-                        onPress={() => navigation.navigate("Production Entry")}
-                      >
-                        <View style={styles.favStatusText}>
-                          <CustomText style={styles.punchText}>
-                            Production Entry
-                          </CustomText>
-                        </View>
-                        <View style={styles.favStatusIcon}>
-                          <FontAwesomeIcon
-                            name="industry"
-                            size={45}
-                            color={Colors.orangeColor}
-                          />
-                        </View>
-                      </TouchableOpacity>
-                    </>
-                  )}
+                    <TouchableOpacity style={[styles.favSubCard]} onPress={() => navigation.navigate("Production Entry")}>
+                      <View style={styles.favStatusText}>
+                        <CustomText style={styles.punchText}>Production Entry</CustomText>
+                      </View>
+                      <View style={styles.favStatusIcon}>
+                        <FontAwesomeIcon name="industry" size={45} color={Colors.orangeColor} />
+                      </View>
+                    </TouchableOpacity>
+ )}
+
+ 
                 </View>
-
-
-
-<View
-                  style={[
-                    // styles.favStatus,
-                    { width: !isManuFactuer ? "50%" : null },
-                  ]}
-                >
-                
                  <TouchableOpacity
-                    style={[
-                      styles.favSubCard,
-                      { width: "45%", marginBottom: 20 },
-                    ]}
-                    onPress={() => navigation.navigate("Sales Collection")}
-                  >
-                    <View style={styles.favStatusText}>
-                      <CustomText style={styles.punchText}>
-                        Sales Officer Collection
-                      </CustomText>
-                    </View>
-                    <View style={styles.favStatusIcon}>
-                      <IconMaterial
-                        name="wallet"
-                        size={45}
-                        color={Colors.orangeColor}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                </View>
-
-
-
-
-                {/* <View style={styles.favStatus}>
-                  <TouchableOpacity
-                    style={styles.favSubCard}
-                    onPress={() => navigation.navigate("Leave")}
-                  >
-                    <View style={styles.favStatusText}>
-                      <CustomText style={styles.punchText}>
-                        Apply Leave
-                      </CustomText>
-                    </View>
-                    <View style={styles.favStatusIcon}>
-                      <Icon
-                        name="calendar-outline"
-                        size={45}
-                        color={Colors.orangeColor}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.favSubCard}
-                    onPress={() => navigation.navigate("HolidayList")}
-                  >
-                    <View style={styles.favStatusText}>
-                      <CustomText style={styles.punchText}>
-                        Holiday's
-                      </CustomText>
-                    </View>
-                    <View style={styles.favStatusIcon}>
-                      <IconMaterial
-                        name="holiday-village"
-                        size={45}
-                        color={Colors.orangeColor}
-                      />
-                    </View>
-                  </TouchableOpacity>
-                </View>
-                {baseURL === MULTARK_URL && (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <TouchableOpacity
-                      style={[styles.favSubCard, { width: "45%" }]}
-                      onPress={() => navigation.navigate("RequirementsScreens")}
-                    >
-                      <View style={styles.favStatusText}>
-                        <CustomText style={styles.punchText}>
-                          Requirements
-                        </CustomText>
-                      </View>
-                      <View style={styles.favStatusIcon}>
-                        <FontAwesomeIcon
-                          name="tasks"
-                          size={40}
-                          color={Colors.orangeColor}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.favSubCard, { width: "45%" }]}
-                      onPress={() => navigation.navigate("TaskScreen")}
-                    >
-                      <View style={styles.favStatusText}>
-                        <CustomText style={styles.punchText}>Task</CustomText>
-                      </View>
-                      <View style={styles.favStatusIcon}>
-                        <FontAwesomeIcon
-                          name="briefcase"
-                          size={40}
-                          color={Colors.orangeColor}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                  </View> 
-                {/* )} */}
+      style={[styles.favSubCard]}
+      onPress={() => navigation.navigate("Late Collection")}
+    >
+      <View style={styles.favStatusText}>
+        <CustomText style={styles.punchText}>Late Collection</CustomText>
+      </View>
+      <View style={styles.favStatusIcon}>
+        <Icon name="alert-circle-outline" size={45} color={Colors.orangeColor} />
+      </View>
+    </TouchableOpacity>
+  
               </View>
             </ScrollView>
           </View>
@@ -1020,58 +591,7 @@ const checkPunchedIn = async () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-
   mainContent: { flex: 1, paddingHorizontal: 10 },
-  header: {
-    padding: 15,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-    marginTop: 10,
-    shadowColor: Colors.blackColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 4,
-    borderRadius: 10,
-    width: "auto",
-  },
-  leftside: { flexDirection: "row" },
-  logo: { width: 150, height: 20 },
-  headerIcons: { flexDirection: "row" },
-  iconButton: { marginLeft: 10 },
-
-  searchBar: {
-    height: 50,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.whiteColor,
-    borderRadius: 24,
-    paddingBottom: 3,
-    paddingTop: 3,
-    paddingLeft: 16,
-    paddingRight: 16,
-    marginBottom: 20,
-    shadowColor: Colors.blackColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 3,
-    elevation: 10,
-    width: "auto",
-    marginTop: "1%",
-    marginRight: "3%",
-    marginLeft: "3%",
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: Colors.greyishBlueColor,
-    marginLeft: 10,
-  },
-
-  favoritesSection: { marginBottom: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
 
   card: {
     backgroundColor: Colors.whiteColor,
@@ -1083,22 +603,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 3,
     elevation: 10,
-  },
-  punchStatus: { flex: 1, margin: 10, flexDirection: "row" },
-  punchInStatus: { flex: 1, flexDirection: "column" },
-  punchStatusText: {
-    flex: 1,
-    paddingTop: 12,
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: "10%",
-  },
-  locationStatusText: {
-    flex: 1,
-    flexDirection: "column",
-    alignItems: "flex-end",
-    justifyContent: "center",
   },
 
   punchText: {
@@ -1116,39 +620,13 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   locationStatus: { flex: 1, flexDirection: "row" },
-  locationStatusValue: {
-    backgroundColor: Colors.whiteColor,
-    flex: 2,
-    flexDirection: "column",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    paddingLeft: "5%",
-    paddingRight: "5%",
-  },
-  iconContainer: {
-    backgroundColor: Colors.orangeColor,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    width: 40,
-    height: 40,
-    marginTop: 10,
-  },
-  punchStatusBg: {
-    width: 106,
-    backgroundColor: "rgba(255, 105, 1, 0.25)",
-    flexDirection: "column",
-    paddingBottom: 10,
-    marginRight: 24,
-    borderRadius: 12,
-  },
   punchLocation: {
     textAlign: "left",
     color: Colors.blackColor,
     fontWeight: Platform.OS == "ios" ? 600 : null,
     fontSize: 17,
   },
-  // favoriteCard
+
   favCard: { width: "auto", height: "48%" },
   favStatus: { flex: 1, flexDirection: "row" },
   favSubCard: {

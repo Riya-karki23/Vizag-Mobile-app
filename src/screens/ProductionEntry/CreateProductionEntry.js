@@ -94,7 +94,7 @@ const [isDropdownDisabled, setIsDropdownDisabled] = useState(false);
       if (result.data) {
         setSalesOrderItems(result.data.data.items || []);
         setSalesOrderTime(result.data.data.time);
-        setSalesOrderStatus(result.data.data.status);
+        setSalesOrderStatus(result.data.data.order_priority);
 
         
       } else {

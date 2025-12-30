@@ -217,23 +217,23 @@ const LoginForm = () => {
         const sessionData = { cookies: result.cookies, userName: email };
         setLoading(false);
         await storeSession(sessionData);
+        // navigation.dispatch(
+        //   CommonActions.reset({
+        //     index: 0,
+        //     routes: [
+        //       {
+        //         name: "Main",
+        //         params: { userData: result.data },
+        //       },
+        //     ],
+        //   })
+        // );
         navigation.dispatch(
           CommonActions.reset({
             index: 0,
             routes: [
               {
                 name: "Main",
-                params: { userData: result.data },
-              },
-            ],
-          })
-        );
-        navigation.dispatch(
-          CommonActions.reset({
-            index: 0,
-            routes: [
-              {
-                name: "SelectOfficeLocation",
                 params: { userData: result.data },
               },
             ],

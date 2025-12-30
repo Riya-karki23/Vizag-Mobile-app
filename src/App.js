@@ -35,6 +35,7 @@ import { showToast } from "./constant/toast";
 import Container from "toastify-react-native";
 import ShowToastConatiner from "./component/ToastComponent";
 import { SafeAreaView } from "react-native-safe-area-context";
+import SalesCollectionOfficer from "./screens/SalesCollectionOfficer/SalesCollectionOfficer";
 import requestUserPermission, {
   displayNotification,
   scheduleNotification,
@@ -52,8 +53,11 @@ import AttendanceFilter from "./screens/Attendance/AttendanceFilter";
 import ProductionEntryList from "./screens/ProductionEntry/ProductionEntryList";
 import CreateProductionEntry from "./screens/ProductionEntry/CreateProductionEntry";
 import SalesOfficerCollectionList from "./screens/SalesCollection/SalesOfficerCollectionList";
+import LateCollection from "./screens/LateCollection/LateCollection";
 
-import SelectOfficeLocation from "./screens/SelectLocation/selectLocation";
+// import SelectOfficeLocation from "./screens/SelectLocation/selectLocation";
+import CheckInOption from "./screens/CheckInOption/CheckInOption";
+
 const Stack = createNativeStackNavigator();
 
 const App = () => {
@@ -88,21 +92,12 @@ const App = () => {
     const checkSession = async () => {
       try {
         const userCookie = await getItemFromStorage(Strings.userCookie);
-        const offcieLocation = await getItemFromStorage(
-          Strings.offceCoordinate
-        );
-        if (userCookie) {
-          //SelectOfficeLocation
-          //Main
-          if (offcieLocation != null) {
-            setInitialRoute("Main");
-          } else {
-            setInitialRoute("SelectOfficeLocation");
-          }
-          // setInitialRoute("SelectOfficeLocation");
-        } else {
-          setInitialRoute("Login");
-        }
+       if (userCookie) {
+  setInitialRoute("Main");
+} else {
+  setInitialRoute("Login");
+}
+
       } catch (error) {
         logError("Error checking session:", error);
         setInitialRoute("Login");
@@ -143,11 +138,30 @@ const App = () => {
                 options={{ headerShown: false, gestureEnabled: false }}
               />
 
-                <Stack.Screen
+                {/* <Stack.Screen
     name="SelectOfficeLocation"
     component={SelectOfficeLocation}
     options={{ headerShown: false }}
-  />
+  /> */}
+
+               {/* check in  */}
+              <Stack.Screen
+  name="CheckInOption"
+  component={CheckInOption}
+  options={{ headerShown: false }}
+/>
+
+<Stack.Screen
+  name="SalesCollectionOfficer"
+  component={SalesCollectionOfficer}
+  options={{ headerShown: false }}
+/>
+
+<Stack.Screen
+  name="Late Collection"
+  component={LateCollection}
+  options={{ headerShown: false }}
+/>
 
 
               <Stack.Screen
@@ -255,6 +269,8 @@ const App = () => {
                 component={AttendanceFilter}
                 options={{ headerShown: false }}
               />
+ 
+
 
               <Stack.Screen
                 name="Production Entry"
