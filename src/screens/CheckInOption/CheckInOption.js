@@ -1,11 +1,10 @@
 // ===============================
 // ✅ CheckInOption.js (FULL)
-// ✅ CHANGE REQUEST (FINAL):
-// ✅ Screen visible to ALL departments (no auto-redirect)
-// ✅ On CONTINUE:
-//    - Sales department -> SalesCollectionOfficer
-//    - All other departments -> MAP
-// ✅ No other UI/validation change
+// ✅ CHANGE ONLY:
+// - Sales dept user presses CONTINUE => ALWAYS navigate to SalesCollectionOfficer
+//   (action checkin OR checkout)
+// - Non-sales => MAP
+// - No popups / no other UI logic change
 // ===============================
 
 import React, { useRef, useState, useEffect } from "react";
@@ -22,7 +21,6 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { showToast } from "../../constant/toast";
 import { setItemToStorage, getItemFromStorage } from "../../utils/asyncStorage";
 import { Strings } from "../../constant/string_constant";
 import { request } from "../../api/auth/auth";
@@ -50,6 +48,25 @@ const OFFICE_COORDS = {
 
 const OFFICE_GEOFENCE_RADIUS = 500; // meters
 
+const normalize = (v) => String(v || "").trim().toLowerCase();
+
+// ✅ FIX: strict resolveAction (no forced "checkin")
+const resolveAction = (params) => {
+  const p = params || {};
+  const a =
+    p.action ||
+    p?.parentRouteParams?.action ||
+    p?.params?.action ||
+    p?.parentRouteParams?.params?.action ||
+    p.type ||
+    p.mode;
+
+  const action = normalize(a);
+  if (action === "checkin") return "checkin";
+  if (action === "checkout") return "checkout";
+  return ""; // ✅ unknown
+};
+
 const CheckInOption = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -62,11 +79,8 @@ const CheckInOption = () => {
   const [loading, setLoading] = useState(false);
   const [skipModeScreen, setSkipModeScreen] = useState(false);
 
-  // ✅ NEW: track if user is Sales (controls navigation destination only)
+  // ✅ track if user is Sales
   const [isSalesUser, setIsSalesUser] = useState(false);
-
-  const getActionValue = () =>
-    route?.params?.action || route?.params?.type || route?.params?.mode || "checkin";
 
   // ✅ Sales -> SalesCollectionOfficer
   const goToSalesCollection = async ({ deptValue, actionValue, selectedModeValue }) => {
@@ -91,10 +105,8 @@ const CheckInOption = () => {
         },
       };
 
-      console.log("➡️ NAVIGATE -> SalesCollectionOfficer PAYLOAD:", payload);
       navigation.navigate("SalesCollectionOfficer", payload);
     } catch (e) {
-      console.log("❌ goToSalesCollection error:", e);
       navigation.navigate("SalesCollectionOfficer", {
         dept: deptValue,
         imageUrl: String(imageUrl || ""),
@@ -128,10 +140,8 @@ const CheckInOption = () => {
         },
       };
 
-      console.log("➡️ NAVIGATE -> MAP PAYLOAD:", payload);
       navigation.navigate("MAP", payload);
     } catch (e) {
-      console.log("❌ goToMap error:", e);
       navigation.navigate("MAP", {
         dept: deptValue,
         imageUrl: String(imageUrl || ""),
@@ -145,18 +155,12 @@ const CheckInOption = () => {
   useEffect(() => {
     (async () => {
       try {
-        console.log("🧾 CheckInOption init route.params:", route?.params || null);
-        console.log("🧾 CheckInOption received imageUrl:", imageUrl);
-
         const storedUserName = await getItemFromStorage(Strings.userName);
-        console.log("🧾 CheckInOption stored username:", storedUserName);
 
-        // ✅ No auto-redirect now. Still set safe defaults.
         if (!storedUserName) {
           const deptValue = "unknown";
           setDepartment(deptValue);
           setIsSalesUser(false);
-          console.log("⚠️ No stored username. Keeping screen visible. Dept:", deptValue);
           return;
         }
 
@@ -165,8 +169,6 @@ const CheckInOption = () => {
           `/api/resource/Employee?fields=["name","department"]&filters=[["user_id","=","${storedUserName}"]]`
         );
 
-        console.log("📌 Employee API raw response:", Employee?.data || Employee);
-
         const json = Employee?.data;
         const deptRaw = json?.data?.[0]?.department || "";
         const dept = String(deptRaw).toLowerCase().trim();
@@ -174,20 +176,13 @@ const CheckInOption = () => {
         const deptValue = dept || "unknown";
         setDepartment(deptValue);
 
-        console.log("✅ Resolved department:", deptValue);
-
         const isSales = deptValue.includes("sales");
         setIsSalesUser(isSales);
       } catch (error) {
         logError("Error fetching department:", error);
-        console.log("❌ Error fetching department:", error);
-
         const deptValue = "unknown";
         setDepartment(deptValue);
         setIsSalesUser(false);
-
-        // ✅ keep screen visible (no redirect)
-        console.log("➡️ Error state. Keeping screen visible. Dept:", deptValue);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,7 +190,6 @@ const CheckInOption = () => {
 
   if (skipModeScreen) return null;
 
-  // ✅ OPTIONS (unchanged UI)
   const options = [
     { label: "Office", icon: "business", value: "office" },
     { label: "Marketing", icon: "megaphone", value: "marketing" },
@@ -206,8 +200,6 @@ const CheckInOption = () => {
 
     try {
       setLoading(true);
-
-      console.log("🟠 Continue pressed. selectedMode:", selectedMode);
 
       await setItemToStorage(MODE_KEY, selectedMode);
 
@@ -222,37 +214,49 @@ const CheckInOption = () => {
         );
 
         await setItemToStorage(Strings.offceGeoFenceRadius, String(OFFICE_GEOFENCE_RADIUS));
-
-        console.log("🏢 Office mode saved:", {
-          coords: OFFICE_COORDS,
-          radius: OFFICE_GEOFENCE_RADIUS,
-          address: OFFICE_ADDRESS,
-        });
       } else {
         await setItemToStorage(Strings.offceCoordinate, "");
         await setItemToStorage(Strings.offceGeoFenceRadius, "");
-        console.log("🌍 Non-office mode => cleared office geofence storage.");
       }
 
-      // ✅ ONLY navigation changes:
-      // Sales -> SalesCollectionOfficer
-      // Others -> MAP
-      if (isSalesUser) {
+      // ✅ robust action resolve
+      let actionValue = resolveAction(route?.params);
+
+      // ✅ if action missing/invalid => default checkin (silent)
+      if (!actionValue) actionValue = "checkin";
+
+      // ✅ IMPORTANT FIX: realtime sales check (avoids isSalesUser false due to late fetch)
+      let salesFlag = isSalesUser;
+
+      try {
+        const storedUserName = await getItemFromStorage(Strings.userName);
+        if (storedUserName) {
+          const Employee = await request(
+            "GET",
+            `/api/resource/Employee?fields=["name","department"]&filters=[["user_id","=","${storedUserName}"]]`
+          );
+          const deptRaw = Employee?.data?.data?.[0]?.department || "";
+          const deptValue = String(deptRaw).toLowerCase().trim();
+          salesFlag = deptValue.includes("sales");
+        }
+      } catch (e) {
+        // fallback stays as previous salesFlag
+      }
+
+      // ✅ CHANGE: Sales user => ALWAYS open SalesCollectionOfficer (checkin or checkout)
+      if (salesFlag) {
         await goToSalesCollection({
           deptValue: department || "unknown",
-          actionValue: getActionValue(),
+          actionValue,
           selectedModeValue: selectedMode,
         });
       } else {
         await goToMap({
           deptValue: department || "unknown",
-          actionValue: getActionValue(),
+          actionValue,
           selectedModeValue: selectedMode,
         });
       }
-    } catch (e) {
-      console.log("❌ onContinue error:", e);
-      showToast(`Mode config save nahi hua. (${e?.message || ""})`);
     } finally {
       setLoading(false);
     }
@@ -274,7 +278,6 @@ const CheckInOption = () => {
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={() => {
-          console.log("✅ Mode selected:", item.value);
           setSelectedMode(item.value);
         }}
         style={styles.cardWrapper}

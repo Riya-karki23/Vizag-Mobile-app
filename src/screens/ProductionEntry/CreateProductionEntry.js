@@ -100,6 +100,7 @@ const [isDropdownDisabled, setIsDropdownDisabled] = useState(false);
       } else {
         showToast("Could not fetch Sales Order data.", true);
       }
+      
     } catch (error) {
       console.log("Sales order fetch error:", error);
       showToast("Error fetching Sales Order", true);

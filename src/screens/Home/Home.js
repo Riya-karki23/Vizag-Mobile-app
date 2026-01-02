@@ -324,10 +324,47 @@ const Home = () => {
     }
   };
 
-  // ✅ CHANGE: No route/mode logic here. Always go camera -> map.
-  const handlePunchInRedirect = async () => {
-    navigation.navigate("ShowCamera");
-  };
+
+
+ const handlePunchInRedirect = async () => {
+  try {
+    if (!employeeId) return;
+
+    // latest IN
+    const logInRes = await request(
+      "GET",
+      `/api/resource/Employee Checkin?filters=${encodeURIComponent(
+        JSON.stringify([["employee", "=", employeeId], ["log_type", "=", "IN"]])
+      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time"]))}&order_by=${encodeURIComponent("time desc")}&limit_page_length=1`
+    );
+
+    // latest OUT
+    const logOutRes = await request(
+      "GET",
+      `/api/resource/Employee Checkin?filters=${encodeURIComponent(
+        JSON.stringify([["employee", "=", employeeId], ["log_type", "=", "OUT"]])
+      )}&fields=${encodeURIComponent(JSON.stringify(["log_type", "time"]))}&order_by=${encodeURIComponent("time desc")}&limit_page_length=1`
+    );
+
+    const inTime = logInRes?.data?.data?.[0]?.time ? new Date(logInRes.data.data[0].time) : null;
+    const outTime = logOutRes?.data?.data?.[0]?.time ? new Date(logOutRes.data.data[0].time) : null;
+
+    // ✅ if latest is IN => next action is checkout else checkin
+    const action =
+      inTime && (!outTime || inTime > outTime) ? "checkout" : "checkin";
+
+    console.log("✅ Home resolved action:", action, { inTime, outTime });
+
+    navigation.navigate("ShowCamera", { action });
+  } catch (e) {
+    // fallback
+    const action = buttonText === "CHECK-OUT" ? "checkout" : "checkin";
+    console.log("⚠️ Home fallback action:", action, e);
+    navigation.navigate("ShowCamera", { action });
+  }
+};
+
+
 
   const isCookieExpired = (cookie) => {
     if (!cookie) return true;
@@ -371,10 +408,15 @@ const Home = () => {
 
           setIsManuFacturer(isProductionManager);
           setUserName(userName);
-          const employeeResponse = await request(
-            "GET",
-            `/api/resource/Employee?filters=[["user_id", "=", "${userName}"]]`
-          );
+         const filters = encodeURIComponent(JSON.stringify([["user_id", "=", userName]]));
+const employeeResponse = await request(
+  "GET",
+  `/api/resource/Employee?filters=${filters}`
+);
+console.log("🧾 stored userName:", userName);
+console.log("🌐 baseURL:", baseURL);
+console.log("📌 Employee list response:", employeeResponse?.data);
+
           if (employeeResponse.data.data[0]) {
             const detailedEmployeeResponse = await request(
               "GET",

@@ -2,7 +2,7 @@
 // ✅ ShowCamera.js (FULL)
 // ✅ Only fixes:
 // 1) Upload response -> imageUrl resolve (multiple paths) + console logs
-// 2) Always pass action + imageUrl string to next screens
+// 2) Always pass action + imageUrl string to next screens ✅ (FIXED)
 // 3) Remove accidental setSelectedMode (was undefined in this file)
 // 4) Better error logs (no flow/logic change)
 // ===============================
@@ -25,7 +25,7 @@ import { useEffect, useState, useRef } from "react";
 import { request as requestPermission, PERMISSIONS } from "react-native-permissions";
 import { request as apiRequest } from "../../api/auth/auth";
 
-import { useIsFocused, useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation, useRoute } from "@react-navigation/native"; // ✅ useRoute added
 import { getItemFromStorage, setItemToStorage } from "../../utils/asyncStorage";
 import { Strings } from "../../constant/string_constant";
 import Loader from "../../component/loader/appLoader";
@@ -37,6 +37,27 @@ import uploadRequest from "./upload_image";
 
 const ShowCamera = () => {
   const navigation = useNavigation();
+  const route = useRoute(); // ✅ added
+
+  // ✅ get real action from Home (checkin/checkout)
+  const normalize = (v) => String(v || "").trim().toLowerCase();
+
+const action = (() => {
+  const p = route?.params || {};
+  const candidates = [
+    p.action,
+    p?.parentRouteParams?.action,
+    p?.params?.action,
+    p?.parentRouteParams?.params?.action,
+    p.type,
+    p.mode,
+  ].map(normalize);
+
+  const found = candidates.find((x) => x === "checkin" || x === "checkout");
+  return found || ""; // ✅ NO DEFAULT
+})();
+
+
   const cameraRef = useRef(null);
 
   const [photoUri, setPhotoUri] = useState(null);
@@ -57,11 +78,8 @@ const ShowCamera = () => {
         setLoading(true);
 
         const permissionStatus = await requestPermission(
-  Platform.OS === "android"
-    ? PERMISSIONS.ANDROID.CAMERA
-    : PERMISSIONS.IOS.CAMERA
-);
-
+          Platform.OS === "android" ? PERMISSIONS.ANDROID.CAMERA : PERMISSIONS.IOS.CAMERA
+        );
 
         if (permissionStatus === "granted") {
           setHasPermission(true);
@@ -121,7 +139,10 @@ const ShowCamera = () => {
       setTitle("Capture Photo");
 
       // ✅ IMPORTANT: clear old mode so "previous stored value" never re-used
-      await setItemToStorage("work_mode_selected", "");
+      // ✅ SAFER: clear only on checkin (checkout me mode wipe na ho)
+      if (action === "checkin") {
+        await setItemToStorage("work_mode_selected", "");
+      }
 
       // ✅ fetch department in realtime (same logic, only logs added)
       const storedUserName = await getItemFromStorage(Strings.userName);
@@ -130,9 +151,9 @@ const ShowCamera = () => {
       let dept = "";
       try {
         const empRes = await apiRequest(
-  "GET",
-  `/api/resource/Employee?fields=["name","department"]&filters=[["user_id","=","${storedUserName}"]]`
-);
+          "GET",
+          `/api/resource/Employee?fields=["name","department"]&filters=[["user_id","=","${storedUserName}"]]`
+        );
 
         console.log("📌 Employee API raw response (ShowCamera):", empRes?.data || empRes);
 
@@ -146,8 +167,7 @@ const ShowCamera = () => {
       const deptLower = String(dept || "").toLowerCase();
 
       // ✅ show CheckInOption only for SALES/PRODUCTION (same logic)
-      const shouldShowModePicker =
-        deptLower.includes("sales") || deptLower.includes("production");
+      const shouldShowModePicker = deptLower.includes("sales") || deptLower.includes("production");
 
       // ✅ FIX: file_url can be in different response shapes
       const imageUrl =
@@ -156,20 +176,19 @@ const ShowCamera = () => {
         response?.data?.file_url ||
         response?.file_url ||
         "";
-        const finalImageUrl = String(imageUrl || "");
-      console.log("✅ Resolved imageUrl:", finalImageUrl);
 
+      const finalImageUrl = String(imageUrl || "");
+      console.log("✅ Resolved imageUrl:", finalImageUrl);
 
       // ✅ Keep your flow: Sales/Production -> CheckInOption else direct MAP
       if (shouldShowModePicker) {
-        console.log("➡️ Navigate -> CheckInOption with:", { imageUrl, dept, action: "checkin" });
+        console.log("➡️ Navigate -> CheckInOption with:", { imageUrl, dept, action });
 
-       navigation.navigate("CheckInOption", {
-      imageUrl: finalImageUrl,
-       dept,
-       action: "checkin",
-     });
-
+        navigation.navigate("CheckInOption", {
+          imageUrl: finalImageUrl,
+          dept,
+          action, // ✅ pass real action (checkin/checkout)
+        });
       } else {
         // ✅ Direct MAP (skip mode selection) — same logic, only safe strings/logs
         await setItemToStorage("work_mode_selected", "office");
@@ -178,15 +197,15 @@ const ShowCamera = () => {
           imageUrl,
           dept,
           forceMode: "office",
-          action: "checkin",
+          action,
         });
 
         navigation.navigate("MAP", {
-  imageUrl: finalImageUrl,            // ✅ always the resolved one
-  dept,
-  forceMode: "office",
-  action: "checkin",
-});
+          imageUrl: finalImageUrl, // ✅ always the resolved one
+          dept,
+          forceMode: "office",
+          action, // ✅ pass real action
+        });
       }
     } catch (error) {
       logError("Upload Failed:", error);
@@ -221,11 +240,7 @@ const ShowCamera = () => {
                   ) : (
                     <Camera
                       ref={cameraRef}
-                      style={
-                        Platform.OS === "android"
-                          ? styles.cameraWrapper
-                          : styles.cameraWrapperIOS
-                      }
+                      style={Platform.OS === "android" ? styles.cameraWrapper : styles.cameraWrapperIOS}
                       cameraType="front"
                       isActive={true}
                       flashMode="auto"
@@ -246,18 +261,13 @@ const ShowCamera = () => {
                   colors={[Colors.orangeColor, Colors.redColor]}
                   style={[styles.captureBtn, { marginTop: 50 }]}
                 >
-                  <CustomText style={styles.buttonText}>
-                    {"upload photo".toUpperCase()}
-                  </CustomText>
+                  <CustomText style={styles.buttonText}>{"upload photo".toUpperCase()}</CustomText>
                 </LinearGradient>
               </TouchableOpacity>
             ) : null}
 
             <TouchableOpacity onPress={takePicture}>
-              <LinearGradient
-                colors={[Colors.orangeColor, Colors.redColor]}
-                style={styles.captureBtn}
-              >
+              <LinearGradient colors={[Colors.orangeColor, Colors.redColor]} style={styles.captureBtn}>
                 <CustomText style={styles.buttonText}>{title.toUpperCase()}</CustomText>
               </LinearGradient>
             </TouchableOpacity>

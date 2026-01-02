@@ -1,4 +1,15 @@
-import React, { useState, useEffect } from "react";
+// ===============================
+// ✅ SalesCollectionOfficer.js (FULL)
+// ✅ FINAL BEHAVIOR:
+// - Screen OPEN only if:
+//   1) action valid (checkin/checkout)
+//   2) time window valid
+//   3) same action not already done today
+// - Otherwise direct MAP (NO POPUPS)
+// - SUBMIT remains same + sets done flag
+// ===============================
+
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   StyleSheet,
   View,
@@ -20,8 +31,6 @@ import { showToast } from "../../constant/toast";
 import { logError } from "../../constant/logger";
 import { request } from "../../api/auth/auth";
 import moment from "moment";
-
-// ✅ ADD THIS
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const COLORS = {
@@ -36,6 +45,14 @@ const COLORS = {
 
 const DOCTYPE = "Daily Sales Officer Collection Update";
 
+// ✅ strict time windows
+const MORNING_START = 9; // 9:00
+const MORNING_END = 10.5; // 10:30
+const EVENING_START = 17; // 5:00 PM
+const EVENING_END = 21; // 9:00 PM
+
+const normalize = (v) => String(v || "").trim().toLowerCase();
+
 const SalesCollectionOfficer = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -49,52 +66,84 @@ const SalesCollectionOfficer = () => {
   const [collectedAmt, setCollectedAmt] = useState("");
   const [remarks, setRemarks] = useState("");
 
-  // ✅ for one-time-per-session render while redirect checks
   const [gateChecking, setGateChecking] = useState(true);
 
-  const currentHour = new Date().getHours();
-  const currentMinutes = new Date().getMinutes();
-  const currentTimeDec = currentHour + currentMinutes / 60;
+  // ✅ Action resolver (robust)
+  const action = useMemo(() => {
+    const p = route.params || {};
+    const candidates = [
+      p.action,
+      p?.parentRouteParams?.action,
+      p?.params?.action,
+      p?.parentRouteParams?.params?.action,
+      p?.type,
+      p?.mode,
+    ].map(normalize);
 
-  const isMorningTime = currentTimeDec >= 9 && currentTimeDec <= 10.5;
-  const isEveningTime = currentTimeDec >= 17 && currentTimeDec <= 21;
-  const isAllowedTime = isMorningTime || isEveningTime;
+    const found = candidates.find((x) => x === "checkin" || x === "checkout");
+    return found || "";
+  }, [route.params]);
+
+  const isCheckinAction = action === "checkin";
+  const isCheckoutAction = action === "checkout";
 
   const todayStr = moment().format("YYYY-MM-DD");
   const checkinKey = `daily_checkin_done_${todayStr}`;
   const checkoutKey = `daily_checkout_done_${todayStr}`;
 
-  // ✅ If time exceeded OR already done for this window => redirect to MAP
+  const computeTimeDec = () => {
+    const now = new Date();
+    return now.getHours() + now.getMinutes() / 60;
+  };
+
+  const isWithinWindow = (timeDec) => {
+    const isMorning = timeDec >= MORNING_START && timeDec <= MORNING_END;
+    const isEvening = timeDec >= EVENING_START && timeDec <= EVENING_END;
+    return { isMorning, isEvening };
+  };
+
+ const redirectToMap = () => {
+  navigation.replace("MAP", {
+    ...(route.params || {}),
+    action: action || (route?.params?.action ? String(route.params.action).trim().toLowerCase() : ""),
+  });
+};
+
+
+  // ✅ GATE ON OPEN: wrong action/time/done => MAP
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       let mounted = true;
 
       (async () => {
         try {
           setGateChecking(true);
 
-          // time window not allowed => redirect immediately
-          if (!isAllowedTime) {
-            navigation.replace("MAP", { ...(route.params || {}) });
+          // 1) invalid action
+          if (!isCheckinAction && !isCheckoutAction) {
+            redirectToMap();
             return;
           }
 
-          // if morning & already checked-in once => redirect
-          if (isMorningTime) {
-            const done = await AsyncStorage.getItem(checkinKey);
-            if (done === "1") {
-              navigation.replace("MAP", { ...(route.params || {}) });
-              return;
-            }
+          // 2) time window
+          const timeDec = computeTimeDec();
+          const { isMorning, isEvening } = isWithinWindow(timeDec);
+
+          const allowed =
+            (isCheckinAction && isMorning) || (isCheckoutAction && isEvening);
+
+          if (!allowed) {
+            redirectToMap();
+            return;
           }
 
-          // if evening & already checked-out once => redirect
-          if (isEveningTime) {
-            const done = await AsyncStorage.getItem(checkoutKey);
-            if (done === "1") {
-              navigation.replace("MAP", { ...(route.params || {}) });
-              return;
-            }
+          // 3) one-time per day per action
+          const keyToCheck = isCheckinAction ? checkinKey : checkoutKey;
+          const doneVal = await AsyncStorage.getItem(keyToCheck);
+
+          if (doneVal === "1") {
+            redirectToMap();
+            return;
           }
         } finally {
           if (mounted) setGateChecking(false);
@@ -104,15 +153,7 @@ const SalesCollectionOfficer = () => {
       return () => {
         mounted = false;
       };
-    }, [
-      isAllowedTime,
-      isMorningTime,
-      isEveningTime,
-      navigation,
-      route.params,
-      checkinKey,
-      checkoutKey,
-    ])
+    }, [isCheckinAction, isCheckoutAction, checkinKey, checkoutKey, navigation, route.params])
   );
 
   useEffect(() => {
@@ -121,6 +162,7 @@ const SalesCollectionOfficer = () => {
       setUserEmail(email || "");
       if (email) fetchDailySales(email);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchDailySales = async (email) => {
@@ -134,20 +176,17 @@ const SalesCollectionOfficer = () => {
       const res = await request("GET", url);
       const data = res?.data?.data?.[0] || null;
 
-      if (data) {
-        if (data.date === todayStr) {
-          setDailyRow(data);
-          setPlannedAmt(String(data.planned_collection_amount_for_the_day || ""));
-          setCollectedAmt(String(data.collected_amount_for_the_day || ""));
-          setRemarks(data.remarks || "");
-        } else {
-          setDailyRow(null);
-        }
+      if (data && data.date === todayStr) {
+        setDailyRow(data);
+        setPlannedAmt(String(data.planned_collection_amount_for_the_day || ""));
+        setCollectedAmt(String(data.collected_amount_for_the_day || ""));
+        setRemarks(data.remarks || "");
       } else {
         setDailyRow(null);
       }
     } catch (e) {
       logError("Fetch Error", e);
+      setDailyRow(null);
     } finally {
       setFetching(false);
     }
@@ -155,13 +194,26 @@ const SalesCollectionOfficer = () => {
 
   const handleSubmit = async () => {
     if (!dailyRow?.name) {
-      showToast("No record found.");
+      showToast("No record found for today.");
       return;
     }
 
-    // safety: if not allowed window => go back
-    if (!isAllowedTime) {
-      navigation.replace("MAP", { ...(route.params || {}) });
+    // ✅ Re-check time window on submit (safety)
+    const timeDec = computeTimeDec();
+    const { isMorning, isEvening } = isWithinWindow(timeDec);
+    const allowed =
+      (isCheckinAction && isMorning) || (isCheckoutAction && isEvening);
+
+    if (!allowed) {
+      redirectToMap();
+      return;
+    }
+
+    // ✅ prevent re-submit
+    const keyToCheck = isCheckinAction ? checkinKey : checkoutKey;
+    const doneVal = await AsyncStorage.getItem(keyToCheck);
+    if (doneVal === "1") {
+      redirectToMap();
       return;
     }
 
@@ -175,30 +227,28 @@ const SalesCollectionOfficer = () => {
         collected_amount_for_the_day: parseFloat(collectedAmt) || 0,
       };
 
-      if (isMorningTime) {
+      if (isCheckinAction) {
         payload.check_in = 1;
         payload.check_out = 0;
-      } else if (isEveningTime) {
+      } else if (isCheckoutAction) {
         payload.check_out = 1;
         payload.check_in = 0;
       }
 
       await request("PUT", updateUrl, payload);
 
-      // ✅ mark done (so it won't open again today for same window)
-      if (isMorningTime) await AsyncStorage.setItem(checkinKey, "1");
-      if (isEveningTime) await AsyncStorage.setItem(checkoutKey, "1");
+      await AsyncStorage.setItem(keyToCheck, "1");
 
       showToast("Sync Successful");
-      navigation.replace("MAP", { ...(route.params || {}) });
+      redirectToMap();
     } catch (e) {
+      logError("Sync Failed", e);
       showToast("Sync Failed");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ✅ while checking gate (time + one-time flag), don't show UI
   if (gateChecking) {
     return (
       <SafeAreaView style={styles.container}>
@@ -221,13 +271,15 @@ const SalesCollectionOfficer = () => {
         <Text style={styles.headerTitle}>Daily Collection update</Text>
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : null} style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {fetching ? (
             <ActivityIndicator size="large" color={COLORS.primary} style={styles.loader} />
           ) : dailyRow ? (
             <View style={styles.content}>
-              {/* Profile Card */}
               <View style={styles.profileCard}>
                 <View style={styles.profileIcon}>
                   <Icon name="account-tie" size={40} color={COLORS.primary} />
@@ -235,11 +287,12 @@ const SalesCollectionOfficer = () => {
                 <View>
                   <Text style={styles.officerName}>{dailyRow.sales_person}</Text>
                   <Text style={styles.officerEmail}>{userEmail}</Text>
-                  <Text style={styles.dateText}>{moment(dailyRow.date).format("DD MMMM YYYY")}</Text>
+                  <Text style={styles.dateText}>
+                    {moment(dailyRow.date).format("DD MMMM YYYY")}
+                  </Text>
                 </View>
               </View>
 
-              {/* Stats */}
               <Text style={styles.sectionTitle}>Outstanding Summary</Text>
               <View style={styles.statsContainer}>
                 <View style={styles.statBox}>
@@ -256,7 +309,6 @@ const SalesCollectionOfficer = () => {
                 </View>
               </View>
 
-              {/* Update */}
               <Text style={styles.sectionTitle}>Collection Update</Text>
               <View style={styles.updateCard}>
                 <View style={styles.inputWrapper}>
@@ -274,16 +326,12 @@ const SalesCollectionOfficer = () => {
                   </View>
                 </View>
 
-                {isEveningTime && (
+                {/* ✅ show collected only for CHECKOUT */}
+                {isCheckoutAction && (
                   <View style={styles.inputWrapper}>
                     <Text style={styles.inputLabel}>Collected Amount for the day</Text>
                     <View style={styles.inputContainer}>
-                      <Icon
-                        name="currency-inr"
-                        size={20}
-                        color={COLORS.textGrey}
-                        style={styles.fieldIcon}
-                      />
+                      <Icon name="currency-inr" size={20} color={COLORS.textGrey} style={styles.fieldIcon} />
                       <TextInput
                         style={styles.textInput}
                         value={collectedAmt}
